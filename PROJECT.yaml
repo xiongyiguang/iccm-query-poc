@@ -11,7 +11,7 @@ project:
   type: "客户POC技术原型"
   shape: "本机与腾讯云演示Web智能问数助手"
   delivery_goal: "发布DeepSeek普通版第三轮及公共机制扩展修复；保留现有Agent交接版本"
-  stage: "DeepSeek普通版r12发布准备，候选与目标机验证后切换；非客户正式验收"
+  stage: "DeepSeek普通版r12已推送并部署；本机/目标机608项及117步真实DeepSeek通过，公网与数据/配置/制品核验通过；Agent本机新改动不发布，非客户正式验收"
   owner: "用户负责业务确认，Codex负责设计实现"
   created_at: "2026-09-14"
   updated_at: "2026-10-09"

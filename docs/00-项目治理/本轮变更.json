@@ -14,6 +14,21 @@
   "rollback_target": "/opt/iccm-8899/releases/20261008-r11",
   "data_migration": false,
   "validation_plan": "候选本机608项、目标机608项、前端运行检查、冻结117步真实DeepSeek及公开入口鉴权/制品核验",
-  "execution_status": "普通候选本机608/608及117/117，目标机608/608及117/117；待提交推送和切换",
-  "validation_evidence": "docs/07-部署与运维/DeepSeek普通版r12发布记录-20261009.md"
+  "execution_status": "DeepSeek普通版r12已推送并部署；本机/目标机608项及117步真实DeepSeek通过，公网与数据/配置/制品核验通过；Agent本机新改动不发布，非客户正式验收",
+  "validation_evidence": "docs/07-部署与运维/DeepSeek普通版r12发布记录-20261009.md",
+  "execution_result": {
+    "git_source_commit": "8daa644a98006623fe6be0191228f479cf312891",
+    "git_push": "verified remote master",
+    "release": "/opt/iccm-8899/releases/20261009-r12",
+    "service": "active/running",
+    "local_offline": "608/608",
+    "target_offline": "608/608",
+    "local_deepseek": "117/117",
+    "target_deepseek": "117/117",
+    "public_browser": "实际页面查询及两视口检查通过，非移动端正式视觉验收",
+    "data_config_unchanged": true,
+    "rollback_retained": "r11",
+    "actual_rollback_rehearsal": false,
+    "agent_repairs_published": false
+  }
 }
