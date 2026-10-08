@@ -140,7 +140,7 @@ class RequestActionTests(unittest.TestCase):
     def test_legacy_entry_retries_typed_request_without_sharing_independent_plan(self):
         from business_request import unpack_route
         q='请判断设备有无故障。'
-        typed={'business_request':{'version':6,'mode':'new','roles':{'background':[],'output':[1],'control':[]},'tasks':[
+        typed={'business_request':{'version':10,'mode':'new','roles':{'background':[],'output':[1],'control':[]},'tasks':[
             {'base':None,'action':'request','request_spans':[1],'spans':[1],'set':{'operation':'unsupported','topics':['limits']},'filters':[]}]},'legacy':None}
         slots=unpack_route(typed);slots.pop('business_request');legacy={'business_request':None,'legacy':slots}
         def response(value):

@@ -84,7 +84,10 @@ def check(c,r,o):
     if kind=='config':return ok and e=={'tree':'config','code':'MOHB01'} and '设备' in r['answer']
     if kind=='candidate':return r.get('status')=='ambiguous' and r.get('candidate_only') and any(x['code']==POINT for x in records) and all('value' not in x for x in records)
     if kind=='point_value':return ok and e.get('code')==POINT and attr.get('value',{}).get('display_value')=='40.69898987' and attr.get('unit',{}).get('status')=='missing' and attr.get('unit',{}).get('value')=='' and any(ref.get('fields',{}).get('单位')=='' for ref in attr['unit'].get('evidence',[]))
-    if kind=='high2':return ok and r.get('requested_thresholds')==['actual_high2'] and list(r['threshold_details'][0]['thresholds'].values())==o['high2']
+    if kind=='high2':
+        if r.get('attributes'):
+            return ok and r.get('requested_properties')==['actual_high2'] and attr['actual_high2']['value']==o['high2'][0] and any(ref.get('fields',{}).get('真实值报警阈值-高2')==o['high2'][0] for ref in attr['actual_high2'].get('evidence',[]))
+        return ok and r.get('requested_thresholds')==['actual_high2'] and list(r['threshold_details'][0]['thresholds'].values())==o['high2']
     if kind=='parts':return ok and e=={'tree':'config','code':'MOHB01'} and all(x.get('parent')=='MOHB01' for x in records)
     if kind=='explain':return r.get('status')=='conversation' and 'MOHB01' in r['answer'] and ('父编码' in r['answer'] or '父引用' in r['answer']) and bool(r.get('evidence'))
     if kind=='mohb_candidates' and c['id']=='B03e':return ok and e=={'tree':'equipment_class','code':'MOHB'}  # 同一已明确建立的主体，当前契约保留其对象域。
@@ -96,7 +99,12 @@ def check(c,r,o):
     if kind=='numeric_ambiguous':return r.get('status')=='clarify'  # V23 中含糊的“度”必须澄清，不能静默丢弃单位条件。
     if kind=='numeric_celsius':return ok and r.get('total')==o['celsius_over60'] and {'field':'value','operator':'gt','value':'60'} in filters and any(f['field']=='unit' and f['value']=='℃' for f in filters)
     if kind=='point4':return ok and e.get('code')==POINT4
-    if kind=='all_thresholds':return ok and [x['thresholds'] for x in r.get('threshold_details',[])]==o['point4_thresholds'] and '128' in r['answer']
+    if kind=='all_thresholds':
+        if r.get('attributes'):
+            facts=[a for a in r['attributes'] if '报警阈值-' in a.get('field','')]
+            values={a['field']:a['value'] or '未提供' for a in facts}
+            return ok and [values]==o['point4_thresholds'] and len(facts)==18 and '128' in r['answer'] and all(a.get('evidence') for a in facts)
+        return ok and [x['thresholds'] for x in r.get('threshold_details',[])]==o['point4_thresholds'] and '128' in r['answer']
     raise ValueError(kind)
 
 def main():

@@ -93,7 +93,7 @@ class ObjectReviewHttpTests(unittest.TestCase):
  def test_no_early_execution_and_no_wrong_domain_draft_after_confirm(self):
   import app
   q,p,s,ids,e,d,result=checked(app.STORE)
-  def interpret(*args):
+  def interpret(*args,**kwargs):
    model.TRACE.value={'engine':'business_request','business_request_state':copy.deepcopy(s),'changed_tasks':ids,'business_request_delta':resolve_delta_sources(d,q)}
    return copy.deepcopy(p)
   with patch.object(app,'interpret',side_effect=interpret),patch('request_checklist.gate',return_value=result),patch.object(app.STORE,'execute',wraps=app.STORE.execute) as execute:
@@ -107,7 +107,7 @@ class ObjectReviewHttpTests(unittest.TestCase):
 def serve_fixture():
  import app,request_checklist
  app.STORE=app.IMPORTS.load();q,p,s,ids,e,d,result=checked(app.STORE)
- def interpret(*args):
+ def interpret(*args,**kwargs):
   model.TRACE.value={'engine':'business_request','business_request_state':copy.deepcopy(s),'changed_tasks':ids,'business_request_delta':resolve_delta_sources(d,q)}
   return copy.deepcopy(p)
  app.interpret=interpret;request_checklist.gate=lambda *args,**kwargs:copy.deepcopy(result)

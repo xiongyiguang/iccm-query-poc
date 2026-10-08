@@ -16,5 +16,19 @@ const tick=()=>new Promise(resolve=>setImmediate(resolve));
  await a.document.getElementById('new').onclick();assert.notEqual(vm.runInContext('session',a.context),old);assert.ok(!a.calls.some(x=>x.path==='/api/reset'),'completed history remains resumable');
  const ids=vm.runInContext('Array.from({length:1000},()=>createSessionId())',a.context);assert.equal(new Set(ids).size,1000);
  const b=setup(true);vm.runInContext(source,b.context);await tick();assert.equal(b.document.getElementById('modelState').children[1].textContent,'服务未连接');
- console.log('PASS: HTTP bootstrap, device query, new conversation, random IDs, connection failure');
+ // 完整计算无需分页记录；零记录和未完成计算仍保留空结果提示。
+ const textOf=e=>[e.textContent,...(e.children||[]).map(textOf)].join(' ');
+ for(const [kind,completed,empty] of [['difference',true,false],['difference',false,true],['records',true,true],['count',true,true]]){
+  a.context.proofResult={status:'ok',answer:'test calculation',total:0,records:[],metrics:[{label:'test',value:'1'}],context:{},goal_receipt:{completed,goal:{kind}}};
+  const card=vm.runInContext('render(proofResult,"proof")',a.context);const text=textOf(card);
+  assert.equal(text.includes('没有匹配记录'),empty,kind+' '+completed);
+  assert.ok(!text.includes('查询全部报警测点'),'typed result avoids unrelated followup');
+ }
+ // 当前失败草稿必须进入客户端上下文，带筛选的结果不能写成全部测点。
+ a.context.pendingResult={status:'data_insufficient',context:{pending_request:{query:{target:'points',filters:[{field:'value',operator:'is_blank',value:''}]}}}};
+ vm.runInContext('applyResultContext(pendingResult)',a.context);
+ assert.equal(vm.runInContext('context.pending_request.query.filters[0].operator',a.context),'is_blank');
+ a.context.scopedResult={status:'ok',answer:'filtered',total:0,records:[],metrics:[],context:{query:{target:'points',filters:[{field:'status',operator:'equals',value:'已报警'}]}},business_scope:'测点记录 · 按所述条件查询'};
+ assert.ok(!textOf(vm.runInContext('render(scopedResult,"filtered")',a.context)).includes('查询范围：全部测点'));
+ console.log('PASS: HTTP bootstrap, device query, new conversation, random IDs, connection failure, computed vs empty result');
 })().catch(e=>{console.error(e.message);process.exitCode=1});

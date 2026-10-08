@@ -81,7 +81,7 @@ class DirectQueryHttpTests(unittest.TestCase):
   import app,model
   from test_query_review import ReviewHttpTests,plan
   p=plan()
-  def interpret(q,c,s):ReviewHttpTests.model_trace(p,q);return copy.deepcopy(p)
+  def interpret(q,c,s,store=None):ReviewHttpTests.model_trace(p,q);return copy.deepcopy(p)
   with patch.object(app,'interpret',side_effect=interpret),patch('request_checklist.gate',return_value={'decision':'accept','choice':'candidate'}):
    r=self.request('/api/query',{'session':'direct-clear','question':'至少50，还不到80','trace':True})
   self.assertEqual(r['status'],'ok');self.assertNotIn('review',r);self.assertIn('query_basis',r)

@@ -1,23 +1,19 @@
 {
-  "change_id": "ICCM-PUBLIC-DOC-SCOPE-20261008",
-  "request_ref": "用户截图指定macOS迁移记录.md和交接说明.md不需要在GitHub上",
-  "baseline_path": "docs/README.md",
-  "baseline_version": "Git 6cc232c；公开仓库只有一条根提交",
-  "scope": "两份指定文档取消Git跟踪并精确忽略；本机文件保留；公开索引和引用同步调整",
-  "impact_reason": "公开文档范围和阅读入口调整，源码、Prompt、业务规则、数据均未变化",
-  "impacted_gates": [],
-  "affected_modules": [],
+  "change_id": "ICCM-DEEPSEEK-RELEASE-20261009",
+  "request_ref": "用户：DeepSeek版本的提交推送GitHub，部署腾讯云",
+  "scope": "普通版backend/frontend/prompts/相关测试与设计；Agent本地修复不发布",
+  "profile": "Release",
+  "affected_modules": [
+    "backend",
+    "frontend",
+    "ai",
+    "deployment"
+  ],
   "high_risk": false,
-  "business_change": false,
-  "confirmation_ref": "用户本轮指定不上传两份文档，沿用此前仅保留最新提交及推送授权",
-  "validation_plan": "两份本机文件哈希不变、索引无两份文件且被忽略、公开链接有效、代码文件无变化、唯一提交及远端文件树核对",
-  "previous_change_path": "docs/00-项目治理/项目变更记录.md（前轮文档称谓与公开范围记录）",
-  "execution_result": {
-    "status": "公开文档范围调整，非业务验收",
-    "business_tests": "纯文档和Git跟踪范围调整，不重跑业务测试",
-    "cloud_deployment": "未操作",
-    "local_originals": "保留并核对哈希",
-    "git_history": "沿用仅一条根提交",
-    "git_delivery": "以本次远端master及文件树核对为准"
-  }
+  "release_authorized": true,
+  "rollback_target": "/opt/iccm-8899/releases/20261008-r11",
+  "data_migration": false,
+  "validation_plan": "候选本机608项、目标机608项、前端运行检查、冻结117步真实DeepSeek及公开入口鉴权/制品核验",
+  "execution_status": "普通候选本机608/608及117/117，目标机608/608及117/117；待提交推送和切换",
+  "validation_evidence": "docs/07-部署与运维/DeepSeek普通版r12发布记录-20261009.md"
 }

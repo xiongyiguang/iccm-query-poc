@@ -1,12 +1,14 @@
 # Prompt 资产管理
 
+2026-10-09发布候选：本次仅发布DeepSeek普通版公共机制修复，活跃协议V32/V28/V25、业务请求V10/独立清单V13；Codex智能体保留已提交交接版本。发布状态和本轮实测以[普通版r12发布记录](../07-部署与运维/DeepSeek普通版r12发布记录-20261009.md)为准；下文旧日期的“未发布”及r11表述为历史事实，不代表本轮最终状态。
+
 ## 当前交接入口（2026-10-08）
 
 |路径|当前职责|生效源|
 |---|---|---|
-|prompts/system/query-intent-v26.txt及v26.schema.json|普通语义路由与请求协议|backend/model.py|
-|prompts/system/context-scope-v22.txt|普通上下文与主体边界|backend/model.py|
-|prompts/system/request-checklist-v18.txt|独立完整条件提取|backend/request_checklist.py|
+|prompts/system/query-intent-v32.txt及v32.schema.json|普通语义路由与请求协议|backend/model.py|
+|prompts/system/context-scope-v28.txt|普通上下文与主体边界|backend/model.py|
+|prompts/system/request-checklist-v25.txt|独立完整条件提取|backend/request_checklist.py|
 |agent_demo/knowledge.txt（V7）|Agent初始化业务知识|agent_demo/runtime.py|
 |agent_demo/query-guide.txt（V4）|Agent查询工具与口径|agent_demo/tools.py|
 |agent_demo/completion-check.txt（V2）|缺业务回执时的一次补查|agent_demo/server.py|

@@ -19,6 +19,7 @@ def is_domain_draft(previous,task):
 
 def apply_scope(task,patch,source,references=None):
     from business_request import require
+    from identifier_aliases import complete_literal_pattern
     old=task['sources'].get('purpose',{})
     if 'purpose' not in patch and not old:return False
     purpose=patch.get('purpose',old.get('value'));scope=patch.get('subject_scope',task['sources'].get('subject_scope',{}).get('value'))
@@ -39,7 +40,7 @@ def apply_scope(task,patch,source,references=None):
         quote=patch.get('request_quote') or source['quote']
         current={r['value'] for r in (references or {}).get('references',[])
                  if r.get('kind')=='current_literal' and r.get('value') and
-                 re.search(r'(?<![A-Za-z0-9_&.#-])'+re.escape(r['value'])+r'(?![A-Za-z0-9_&.#-])',quote)}
+                 re.search(complete_literal_pattern(r['value']),quote)}
         aliases={value}
         for subject in (references or {}).get('confirmed_subjects',[]):
             if value in (subject['code'],subject['name']):aliases.update((subject['code'],subject['name']))

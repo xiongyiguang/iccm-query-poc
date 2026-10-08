@@ -67,7 +67,7 @@ class AttributeHttpTests(FilterHttpTests):
  def test_attribute_context_and_correction(self):
   initial=dict(operation='attributes',entity=None,scope='direct',clarification='',properties=['name'],query={'target':'pbs','filters':[{'field':'name','operator':'equals','value':'XXXX2834'}]})
   first=self.request('/api/query',{'session':'attribute-http','intent':initial})
-  def understand(question,context,selection):
+  def understand(question,context,selection,store=None):
    self.assertEqual(context['requested_properties'],['name'])
    self.assertEqual(context['answered_properties'],['name'])
    return dict(operation='attributes',entity=context['entity'],scope='direct',clarification='',properties=['type'])

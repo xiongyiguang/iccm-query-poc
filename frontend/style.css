@@ -150,3 +150,9 @@ header{position:relative;top:auto;flex-shrink:0}
 @media(max-width:850px){.review-filter{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.review-task{padding:10px}.review-control{flex-basis:130px}}
 
 .business-scope{margin:8px 0;color:var(--muted,#536477);font-size:14px;line-height:1.6}.query-basis{margin:12px 0;font-size:14px;overflow-wrap:anywhere}.query-basis summary{cursor:pointer;padding:8px 0}.query-basis pre{white-space:pre-wrap;overflow-wrap:anywhere;font-size:13px}
+
+.context-operations{display:flex;flex-wrap:wrap;gap:8px;width:100%}.context-operation{display:flex;align-items:center;gap:8px;max-width:100%;flex-wrap:wrap}.context-operation .note{max-width:48rem;overflow-wrap:anywhere}.context-operation button:disabled{cursor:default;opacity:.65}
+
+.context-action-row{flex-wrap:wrap;overflow-x:visible}.context-action-row .context-object{flex-wrap:wrap;flex-shrink:1;min-width:0}.context-action-row .context-object-title{flex-wrap:wrap;flex-shrink:1;min-width:0}.context-action-row .context-object-title code{overflow-wrap:anywhere;word-break:break-word}.context-operations{flex-basis:100%;min-width:0}.context-operation{width:100%;display:grid;grid-template-columns:6rem minmax(0,1fr)}.context-operation .note{margin:0}.context-operation button{margin-left:0;padding:4px 8px;text-align:left}
+
+.context-action-row,.context-action-row .context-object,.context-operation{white-space:normal;overflow-wrap:anywhere}

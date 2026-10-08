@@ -82,7 +82,7 @@ class SemanticReviewHttpTests(unittest.TestCase):
   p,state,changed=apply_delta(d,None,q)
   notice={'title':'分歧','message':'核对','current':['名称包含1'],'alternative':['名称包含2'],'state_warning':''}
   checked={'decision':'accept','choice':'candidate','needs_review':True,'semantic_review':notice}
-  def interpret(*args):
+  def interpret(*args,**kwargs):
    model.TRACE.value={'engine':'business_request','business_request_state':state,'changed_tasks':changed,'business_request_delta':d}
    return copy.deepcopy(p)
   with patch.object(app,'interpret',side_effect=interpret),patch('request_checklist.gate',return_value=checked),patch.object(app.STORE,'execute',wraps=app.STORE.execute) as execute:
@@ -97,7 +97,7 @@ def serve_fixture():
  import app,request_checklist
  app.STORE=app.IMPORTS.load()
  q,a,b,checked=disagreement(app.STORE)
- def interpret(question,context,selection):
+ def interpret(question,context,selection,store=None):
   model.TRACE.value={'engine':'business_request','business_request_state':copy.deepcopy(a[1]),'changed_tasks':a[2],
    'business_request_delta':{'mode':'new','tasks':[{'quote':q}]}}
   return copy.deepcopy(a[0])

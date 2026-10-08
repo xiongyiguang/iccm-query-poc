@@ -1,5 +1,14 @@
 """提供数量受限的身份候选，不放宽实际执行查询的语义。"""
 import copy
+import hashlib,json
+
+def suggestion_signature(store,target,field,value):
+    """仅对属性未命中的同一原标识证明完整候选行相等，不认证实际查询。"""
+    if field not in ('code','name','identity') or not isinstance(value,str) or not 3<=len(value)<=100:return None
+    found=store.filtered({'operation':'search','entity':None,'scope':'direct','clarification':'','query':{'target':target,'filters':[{'field':field,'operator':'contains','value':value}]}})
+    rows=sorted((r['tree'],r['code'],r['evidence']['line']) for r in found['records'])
+    if not rows:return None
+    return json.dumps({'literal':value,'rows':len(rows),'sha256':hashlib.sha256(json.dumps(rows,ensure_ascii=False).encode()).hexdigest()},ensure_ascii=False,sort_keys=True)
 
 DETAILS={'attributes','object','measurement','threshold','parent','equipment','equipment_class','part_class'}
 

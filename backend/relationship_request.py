@@ -12,6 +12,11 @@ def compile_relationship(task,allow_ambiguous=False):
             '下级深度须明确声明，不能使用列表查询的默认范围。')
     # 即使某个槽位未解决，也必须校验根对象、投影和单位。
     draft=copy.deepcopy(task);draft.pop('population');draft['operation']='parts'
+    goal=draft.pop('result_goal',None)
+    if goal is not None:
+        from result_goal import validate_goal
+        validate_goal(goal,'parts','config')
+        require(goal['kind'] in ('records','count'),'关系任务仅支持原生下级列表与计数，不能省略其他结果目标。')
     draft['scope']='direct' if task['scope']=='unspecified' else task['scope']
     plan=compile_parts(draft)
     if task['population']=='unspecified' or task['scope']=='unspecified':
@@ -20,6 +25,7 @@ def compile_relationship(task,allow_ambiguous=False):
         return {'operation':'clarify','entity':None,'scope':'direct','clarification':message}
     if task['population']=='all_objects':
         plan.update(operation='search',query={'target':'config','filters':[]})
+    if goal is not None:plan['result_goal']=copy.deepcopy(goal)
     return plan
 
 def population_of_plan(plan):

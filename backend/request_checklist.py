@@ -80,6 +80,11 @@ def business_catalog(store=None):
     catalog['capability_task_policy']='静态概念说明用explain任务及目录主题；不支持的诊断/实时状态/预测用unsupported任务、topics=[limits]。两者不添加数据查询。与读取混合时逐项表达，不能整份unsupported吞掉合法任务。构型根对象的下级列表与数量使用descendants任务：target=config仅表示根对象树，scope=direct/all/unspecified表示遍历深度，population=all_objects/parts/unspecified独立表示返回集合。所有下级对象包括部件与非部件，不加层级限制；只有明确要求部件才用parts。仅说下面有多少东西不授权默认类型或深度，使用unspecified保留完整根草稿并澄清。只允许一个根对象identity/name/code精确条件，不带返回属性或单位。parts旧任务仅用于兼容已存状态，新的关系请求优先descendants。其他关系/分组统计及特定结果说明仍走原专用业务处理。'
     # 两个提取器都能看到现有执行器能力，而非只看到新 DSL。
     from analytics import planner_groups
+    from date_fields import business_clock
+    catalog['business_clock']=business_clock()
+    catalog['threshold_default_policy']='未明确阈值族但指定高/低1至3时，仅取真实值actual同级阈值，不额外加入估计值或变化速率偏差；未指定高低等级的泛问阈值返回18项。明确估计值/偏差族时按明确字段读取。'
+    catalog['result_goal_capabilities']={'kinds':['records','count','attributes','extreme','sort','difference'],'fields':['time','value','thresholds'],'date_operators':['date_gte','date_lt','date_equals'],'ties':'all','difference_directions':[None,'absolute'],'difference_policy':'明确纯算术口径才计算；绝对差须direction=absolute，有向第一项减第二项为null；未确认物理量不混算。','basis_policy':'排序、极值、差值只按原始数值比较时basis=raw_numbers；未明确授权则measurement。basis独立于排序方向及数量，不因为返回100条或仅改TopK就默认回measurement；局部续改保留所有未改目标字段。'}
+    catalog['result_goal_capabilities']['selection_policy']='极值集合extreme只返回字段达到同一最小/最大值的全部并列记录；有序列表sort按顺序返回全范围或前N。先判集合目的，再判顺序；sort且limit=null不等价于extreme，ties=all不能消除区别。完整新问题的结果目标独立提取，不继承旧kind。'
     catalog['aggregation_groups']=planner_groups()
     catalog['aggregation_policy']='对象类型分组使用type原字段；层级编号分组使用level原字段。两者不可替代。'
     catalog['dedicated_capabilities']={
@@ -89,6 +94,10 @@ def business_catalog(store=None):
             'path':['PBS范围内设备','设备构型及设备类祖先映射','现场实际挂接部件','部件类字典'],
             'outputs':['部件列表','部件总数','部件类别数及各类别数量'],
             'contract':'entity保持PBS范围；query.target=parts且equipment_class独立保留；类别分组用analyze/group_count/class_code。无匹配或关系资料缺失由执行器报告。不得扩大到全局构型。'},
+        'pbs_point_scope':{'inputs':['PBS根对象的完整名称或编码','可选测点字段筛选'],
+            'path':['先核验PBS根对象','根对象自身及全部后代的原始父链','按测点编码关联原始记录','再应用测点筛选'],
+            'outputs':['范围内测点记录','记录条数','已实现的排序、极值或统计'],
+            'contract':'PBS对象范围与测点自身身份是不同条件。已实现专用查询保持entity={tree:pbs,code或name:根对象}，query.target=points，query.filters仅含测点自身筛选；不能把根标识放入测点identity/name/code equals冒充范围，不能猜测编码前缀关联。没有明确直接深度时按现有自身及全部后代口径说明；明确仅直接层级而协议不支持时澄清，不冒充已实现。'},
         'other_dedicated':['对应设备/设备类/部件类、父对象及PBS构型映射','按执行目录允许维度的分组统计/排名/占比','针对已执行结果的依据解释'],
         'boundary':'只支持已验证关系，不支持任意跨树SQL、实时故障诊断或预测。普通列表、属性、单构型下级仍按原business_request规则。'}
     if store is not None:
@@ -126,12 +135,16 @@ def literal_references(question,store):
     for r in complete:
         key=(r['domain'],r['field'],r['value'])
         if key not in seen:result.append(r);seen.add(key)
+    from coordinated_references import coordinated_literals
+    result+=coordinated_literals(question,store,result)
+    from identifier_aliases import schema_name_aliases
+    result+=schema_name_aliases(question,store)
     return result
 
 def resolve_sources(checklist,question,reference_context=None):
-    if checklist.get('version') not in (2,3,4,5,6,7,8,9,10,11,12):return checklist
+    if checklist.get('version') not in (2,3,4,5,6,7,8,9,10,11,12,13):return checklist
     from business_request import resolve_request_actions
-    out=resolve_request_actions(checklist,question,'id') if checklist['version'] in (7,8,9,10,11,12) else copy.deepcopy(checklist)
+    out=resolve_request_actions(checklist,question,'id') if checklist['version'] in (7,8,9,10,11,12,13) else copy.deepcopy(checklist)
     version=out.pop('version');segments={s['id']:s for s in source_segments(question)}
     if not isinstance(out.get('tasks'),list):raise RequestInvalid('条件清单tasks必须是数组。')
     def quote(ids,inherit=False):
@@ -140,23 +153,23 @@ def resolve_sources(checklist,question,reference_context=None):
         return question[min(segments[i]['start'] for i in ids):max(segments[i]['end'] for i in ids)]
     for task in out.get('tasks',[]):
         if not isinstance(task,dict):raise RequestInvalid('条件清单任务必须是对象。')
-        if version in (7,8,9,10,11,12) and task.get('operation')=='retain':continue
+        if version in (7,8,9,10,11,12,13) and task.get('operation')=='retain':continue
         kind=None
-        if version in (6,7,8,9,10,11,12):
+        if version in (6,7,8,9,10,11,12,13):
             kind=task.pop('kind',None)
-            if kind not in (('query','parts','descendants','explain','unsupported') if version==12 else ('query','parts','explain','unsupported') if version==11 else ('query','explain','unsupported')) or 'operation' in task:raise RequestInvalid('V6任务必须明确query/explain/unsupported类型，不能另带operation。')
+            if kind not in (('query','parts','descendants','explain','unsupported') if version in (12,13) else ('query','parts','explain','unsupported') if version==11 else ('query','explain','unsupported')) or 'operation' in task:raise RequestInvalid('V6任务必须明确query/explain/unsupported类型，不能另带operation。')
             if kind not in ('query','parts','descendants'):
                 if 'quote' in task:raise RequestInvalid('不能重写任务原话。')
                 task['operation']=kind;task['quote']=quote(task.pop('spans',None))
                 continue
-        if version in (3,4,5,6,7,8,9,10,11,12):
+        if version in (3,4,5,6,7,8,9,10,11,12,13):
             if 'operation' in task:raise RequestInvalid('V3由返回字段决定查询形式，不接受重复operation字段。')
             task['operation']=kind if kind in ('parts','descendants') else 'attributes' if task.get('properties') else 'search'
         if 'quote' in task:raise RequestInvalid('不能同时重写引文和引用编号。')
         task['quote']=quote(task.pop('spans',None))
         for f in task.get('conditions',[]):
             if 'quote' in f:raise RequestInvalid('不能重写条件原话。')
-            if version in (4,5,6,7,8,9,10,11,12):
+            if version in (4,5,6,7,8,9,10,11,12,13):
                 if 'reference' not in f:raise RequestInvalid('V4条件须区分本轮片段、已确认条件和前文引用。')
                 refid=f.pop('reference')
                 if refid is not None:
@@ -164,6 +177,11 @@ def resolve_sources(checklist,question,reference_context=None):
                     if type(refid)!=int or len(refs)!=1 or f.pop('spans',None)!=[]:
                         raise RequestInvalid('前文引用编号无效，或与本轮来源混用。')
                     ref=refs[0];target=task.get('target')
+                    # 同一选中编码的跨域引用必须有目录实际核验，不能凭PBS外观当测点。
+                    mapped='config' if target in ('equipment','parts') else target
+                    if ref['domain']!=mapped and ref.get('kind') in ('user_selection','executed_entity'):
+                        peers=[r for r in (reference_context or {}).get('references',[]) if r['value']==ref['value'] and r['domain']==mapped and r.get('kind')==ref.get('kind') and r['field']==ref['field']]
+                        if len(peers)==1:ref=peers[0]
                     if (f.get('operator')!='equals' or f.get('field') not in ('name','code','identity') or
                         ref['value']!=f.get('value') or f['field']!='identity' and ref['field'] not in ('identity',f['field']) or
                         not (ref['domain'] is None or ref['domain']==('config' if target in ('equipment','parts') else target) or target=='objects' and ref['domain']!='points')):
@@ -181,14 +199,14 @@ def prior_view(previous):
              'purpose':t['sources'].get('purpose',{}).get('value','data'),'subject_scope':t['sources'].get('subject_scope',{}).get('value','none'),
              **({'scope':t['scope']} if t['operation'] in ('parts','descendants') else {}),
              **({'population':t['population']} if t['operation']=='descendants' else {}),
-             'unit':t['unit'],'conditions':[{k:f[k] for k in ('field','operator','value')} for f in t['filters']]}
+             **({'result_goal':copy.deepcopy(t['result_goal'])} if 'result_goal' in t else {}),'unit':t['unit'],'conditions':[{k:f[k] for k in ('field','operator','value')} for f in t['filters']]}
              ) for t in (previous or {}).get('tasks',[])]
 
 def extract(question,previous,thinking='disabled',model=None,effort=None,store=None,reference_context=None,verified_schema=None):
     from model import NoRedirect,ENDPOINT,MODEL
     from attributes import CATALOG
     from query_filters import POINT_FIELDS,POINT_RAW_FIELDS,OBJECT_FIELDS,OPERATORS
-    prompt=(ROOT/'prompts/system/request-checklist-v18.txt').read_text(encoding='utf-8')
+    prompt=(ROOT/'prompts/system/request-checklist-v25.txt').read_text(encoding='utf-8')
     catalog=verified_schema['business_catalog'] if verified_schema else business_catalog(store)
     payload={'question':question,'segments':source_segments(question),'prior':prior_view(previous)}
     if reference_context:payload['reference_context']=reference_context
@@ -207,7 +225,9 @@ def extract(question,previous,thinking='disabled',model=None,effort=None,store=N
         if choice.get('finish_reason')!='stop':raise RequestInvalid('独立条件提取未完整结束。')
         content=choice['message']['content'];attempts.append({'content':content,'model':raw.get('model'),'usage':raw.get('usage')})
         try:
-            answer=json.loads(content);delta=to_delta(answer,previous,question,reference_context)
+            answer=json.loads(content)
+            if answer.get('version')!=13:raise RequestInvalid('当前独立清单必须使用V13完整结果目标契约，不能降级到旧协议。')
+            delta=to_delta(answer,previous,question,reference_context)
             if delta is not None:apply_delta(delta,previous,question,reference_context)
             break
         except RequestAmbiguous:break
@@ -216,6 +236,7 @@ def extract(question,previous,thinking='disabled',model=None,effort=None,store=N
             if attempt:
                 failure=RequestInvalid('独立清单经一次修正仍不合法：'+str(error))
                 failure.extraction_trace={'input':payload,'attempts':copy.deepcopy(attempts),'seconds':round(time.monotonic()-start,3)}
+                if hasattr(error,'business_constraint'):failure.business_constraint=copy.deepcopy(error.business_constraint)
                 raise failure from None
             body['messages']+=[{'role':'assistant','content':content},{'role':'user','content':'程序校验发现协议冲突：'+str(error)+'。请重新按原话和完整业务目录提取同一份条件清单。只修正结构、引用编号或互斥字段，不得忽略原话条件；若原话不能表达为可执行任务应明确unsupported。只输出JSON。'}]
     # 不保存供应商的思考正文或 Authorization 请求头。
@@ -227,10 +248,11 @@ def signature(f):return tuple(f[k] for k in ('field','operator','value'))
 
 def to_delta(checklist,previous,question,reference_context=None):
     if not isinstance(checklist,dict):raise RequestInvalid('条件清单必须是JSON对象。')
-    if checklist.get('version') in (9,10,11,12) and checklist.get('status') not in ('ready','unsupported'):
+    if checklist.get('version') in (9,10,11,12,13) and checklist.get('status') not in ('ready','unsupported'):
         raise RequestInvalid('V9不输出重复的全局clarify状态；完整任务的单位歧义由程序校验，其他缺失信息用unsupported并说明原因。')
-    purpose_required=checklist.get('version') in (10,11,12)
-    explicit_execution=checklist.get('version') in (5,6,7,8,9,10,11,12)
+    goal_required=checklist.get('version')==13
+    purpose_required=checklist.get('version') in (10,11,12,13)
+    explicit_execution=checklist.get('version') in (5,6,7,8,9,10,11,12,13)
     checklist=resolve_sources(checklist,question,reference_context)
     from business_request import require_keys
     def require(ok,msg):
@@ -270,7 +292,7 @@ def to_delta(checklist,previous,question,reference_context=None):
             if replacing:patch.update(replace_task=True,retain_filters=[])
             patches.append(patch)
             continue
-        require_keys(task,{'id','quote','operation','target','properties','unit','conditions'}|({'execute'} if explicit_execution else set())|({'purpose','subject_scope'} if purpose_required else set())|({'scope'} if task.get('operation') in ('parts','descendants') else set())|({'population'} if task.get('operation')=='descendants' else set()),'checklist.tasks[]（clarification仅放在顶层）')
+        require_keys(task,{'id','quote','operation','target','properties','unit','conditions'}|({'execute'} if explicit_execution else set())|({'purpose','subject_scope'} if purpose_required else set())|({'scope'} if task.get('operation') in ('parts','descendants') else set())|({'population'} if task.get('operation')=='descendants' else set())|({'result_goal'} if goal_required and task.get('operation') in ('search','attributes') or 'result_goal' in task else set()),'checklist.tasks[]（clarification仅放在顶层）')
         execute=task.get('execute',True)
         require(type(execute) is bool,'execute必须是布尔值。')
         q=task['quote'];require(isinstance(q,str) and q and q in question,'任务缺少本轮原话。')
@@ -280,6 +302,7 @@ def to_delta(checklist,previous,question,reference_context=None):
         completing_domain=is_domain_draft(previous,base) and task.get('purpose')=='introduction' and task.get('subject_scope')=='explicit'
         replacing=bool(base and not completing_domain and (base['operation'] in NOTE_OPERATIONS or task['target']!=base['target'] or (task['operation'] in ('parts','descendants'))!=(base['operation'] in ('parts','descendants'))))
         fields={k:task[k] for k in (('operation','target','properties','scope','population') if task['operation']=='descendants' else ('operation','target','properties','scope') if task['operation']=='parts' else ('operation','target','properties')) if replacing or not base or task[k]!=base.get(k)}
+        if 'result_goal' in task and (replacing or not base or task['result_goal']!=base.get('result_goal')):fields['result_goal']=copy.deepcopy(task['result_goal'])
         if not replacing and task['operation']=='search' and task['properties']==[]:fields.pop('properties',None)
         require(isinstance(task['conditions'],list) and len(task['conditions'])<=8,'条件清单数量错误。')
         unmatched={f['id']:f for f in base['filters']} if base else {};edits=[];seen=set();retained=[]
@@ -323,6 +346,7 @@ def compile_checklist(checklist,previous,question,store,reference_context=None):
     return compile_selected(state,changed,execution_quotes(delta)),state,changed,delta
 
 def canonical_tasks(state,changed,store):
+    from result_goal import default_goal
     """比较业务语义，忽略来源元数据、编号分配和 AND 条件顺序。"""
     from typed_fields import decimal_value,canonical_unit,NUMERIC_OPS,NUMERIC_FIELDS
     from query_filters import TARGETS
@@ -347,9 +371,28 @@ def canonical_tasks(state,changed,store):
                 identity='line' if table=='points' else 'tree'
                 rows=store.rows('SELECT DISTINCT '+identity+',code FROM '+table+' WHERE '+where,args)
                 if rows:field='resolved_identity';value=json.dumps(sorted((r[identity],r['code']) for r in rows),ensure_ascii=False)
+                elif t['operation']=='attributes':
+                    from identity_candidates import suggestion_signature
+                    suggestion=suggestion_signature(store,t['target'],field,value)
+                    if suggestion:field='unresolved_identity_suggestion';value=suggestion
             fs.append((field,op,value))
-        result.append({'task_id':tid,'operation':t['operation'],'target':t['target'],'scope':t['scope'],**({'population':t['population']} if t['operation']=='descendants' else {}),'properties':sorted(t['properties']),
-                       'filters':sorted(fs),'unit':t['unit'],'purpose':t['sources'].get('purpose',{}).get('value','data')})
+        if t['target']=='points':
+            from date_fields import canonical_year_filters
+            fs=canonical_year_filters(fs,store)
+        target=t['target']
+        # 跨树精确身份定位只有命中唯一原对象时，才与其实际树等价。
+        # 不改变执行计划；多对象、列表、额外筛选仍保留原域差异。
+        props=set(t['properties']);goal=t.get('result_goal',default_goal(t['operation']))
+        if (target=='objects' and t['operation']=='attributes' and
+                t['sources'].get('purpose',{}).get('value')=='identity' and
+                {'name','code'}<=props<={'name','code','type','level','parent'} and
+                goal.get('kind')=='attributes' and len(fs)==1 and
+                fs[0][0]=='resolved_identity' and fs[0][1]=='equals'):
+            identities=json.loads(fs[0][2])
+            if len(identities)==1 and identities[0][0] in ('pbs','config','equipment_class','part_class'):
+                target=identities[0][0]
+        result.append({'task_id':tid,'operation':t['operation'],'target':target,'scope':t['scope'],**({'population':t['population']} if t['operation']=='descendants' else {}),'properties':sorted(t['properties']),
+                       'filters':sorted(fs),'unit':t['unit'],'result_goal':({'native_descendants':'records_and_count'} if t['operation']=='descendants' else copy.deepcopy(t.get('result_goal',default_goal(t['operation'])))),'purpose':t['sources'].get('purpose',{}).get('value','data')})
     return result
 
 def reconcile(candidate,changed,independent,independent_changed,store):
@@ -458,6 +501,19 @@ def gate(question,previous,candidate,changed,mode,store,reference_context=None):
     comparison['matches']=comparison['matches'] and (mode==answer['mode'] or same_future)
     out={'decision':'accept' if comparison['matches'] else 'clarify','choice':'candidate','extraction':trace,'comparison':comparison}
     if comparison['matches']:return out
+    # 默认快照投影与单条测点列表输出同一事实；其他结果动作不可用此例外。
+    ca,cb=comparison['candidate'],comparison['independent']
+    if len(ca)==len(cb)==1 and mode==answer['mode']:
+        a,b=ca[0],cb[0];kinds={a.get('result_goal',{}).get('kind'),b.get('result_goal',{}).get('kind')}
+        rows=[t for t in (a,b) if t['operation']=='search' and not t['properties']]
+        attrs=[t for t in (a,b) if t['operation']=='attributes' and set(t['properties'])=={'value','unit','source','time','physical_quantity'}]
+        strip=lambda t:{k:v for k,v in t.items() if k not in ('operation','properties','result_goal')}
+        unique=(len(a.get('filters',[]))==1 and a['filters'][0][0]=='resolved_identity' and len(json.loads(a['filters'][0][2]))==1)
+        if kinds=={'records','attributes'} and rows and attrs and a['target']=='points' and unique and strip(a)==strip(b):
+            choice='candidate' if a['operation']=='attributes' else 'independent'
+            out.update(decision='accept',choice=choice,native_snapshot_projection=True)
+            if choice=='independent':out.update(plan=plan,state=state,changed=ids,delta=delta)
+            return out
     # 两种身份用途均已通过各自的对象域前置检查。
     if comparison['candidate'] and len(comparison['candidate'])==len(comparison['independent']):
         normalize=lambda tasks:[{**t,'purpose':'identity'} if t.get('purpose') in ('identity','introduction') else t for t in tasks]
@@ -478,8 +534,8 @@ def gate(question,previous,candidate,changed,mode,store,reference_context=None):
     # 只能选择已有的完整建议，不能删除用户所问字段，
     # 也不能拼接或合并条件；其他投影差异仍需澄清。
     ca,cb=comparison['candidate'],comparison['independent']
-    if len(ca)==len(cb) and mode==answer['mode']:
-        directions=[]
+    if len(ca)==len(cb):
+        directions=[];proven_projection_ids=set()
         for left,right in zip(ca,cb):
             x,y=copy.deepcopy(left),copy.deepcopy(right)
             xp,yp=set(x.pop('properties',[])),set(y.pop('properties',[]))
@@ -489,11 +545,19 @@ def gate(question,previous,candidate,changed,mode,store,reference_context=None):
             if identity_context:x['purpose']=y['purpose']='identity'
             if x!=y or x['operation']!='attributes' or not (point_context or identity_context):
                 directions=[];break
+            proven_projection_ids.add(x['task_id'])
             if xp<yp:directions.append('independent')
             elif yp<xp:directions.append('candidate')
+        # 只归一已逐项证明的上下文元数据投影；完整整组状态仍须一致。
+        # new删掉未提及分支时不能因为当前答案相同而通过。
+        projection_future=False
         if directions and len(set(directions))==1:
+            normalize=lambda tasks:[{**t,'properties':[]} if t['task_id'] in proven_projection_ids else t for t in tasks]
+            projection_future=normalize(canonical_tasks(candidate,[t['id'] for t in candidate['tasks']],store))==normalize(canonical_tasks(state,[t['id'] for t in state['tasks']],store))
+        if directions and len(set(directions))==1 and (mode==answer['mode'] or projection_future):
             choice=directions[0]
-            out.update(decision='accept',choice=choice,provenance_projection=True)
+            out.update(decision='accept',choice=choice,provenance_projection=True,
+                       proven_projection_future_state=projection_future)
             if choice=='independent':out.update(plan=plan,state=state,changed=ids,delta=delta)
             return out
     requests={'candidate':request_view(candidate,changed),'independent':request_view(state,ids)}
@@ -507,9 +571,12 @@ def gate(question,previous,candidate,changed,mode,store,reference_context=None):
             return out
         from semantic_review import business_question,describe_disagreement
         out.update(decision='clarify',choice='clarify',requires_clarification=True,
-                   reason=business_question(requests['candidate'],requests['independent'],mode,answer['mode']),
+                   reason=business_question(requests['candidate'],requests['independent'],mode,answer['mode'],comparison),
                    pending_state=copy.deepcopy(candidate),
                    semantic_review=describe_disagreement(requests['candidate'],requests['independent'],mode,answer['mode'],same_future))
+        from clarification_state import make_slot
+        slot=make_slot(requests['candidate'],requests['independent'],comparison)
+        if slot:out['pending_slot']=slot
         return out
     verdict=review_endpoint(question,endpoints,model)
     out['adjudication']=verdict

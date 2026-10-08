@@ -14,7 +14,8 @@ from attributes import CATALOG
 # 测点数值筛选与属性读取共用同一原始字段登记表。
 POINT_RAW_FIELDS={key:spec['fields']['points'] for key,spec in CATALOG.items() if 'points' in spec['fields'] and key not in POINT_FIELDS}
 from typed_fields import NUMERIC_FIELDS,NUMERIC_OPS,NUMERIC_LABELS,decimal_value,canonical_unit
-OPERATORS={'contains','equals','starts_with','not_contains','is_blank','not_blank'}|NUMERIC_OPS
+from date_fields import DATE_OPS,DATE_LABELS,parse_time,calendar_period
+OPERATORS=DATE_OPS|{'contains','equals','starts_with','not_contains','is_blank','not_blank'}|NUMERIC_OPS
 
 def filter_fields(target):
  return [*({**POINT_FIELDS,**POINT_RAW_FIELDS} if target=='points' else OBJECT_FIELDS),'identity']
@@ -47,6 +48,7 @@ def validate_query(query):
   if f['field'] not in filter_fields(query['target']) or f['operator'] not in OPERATORS:raise ValueError('不支持的筛选字段或比较方式；未执行查询。')
   if f['operator'] in NUMERIC_OPS and (query['target']!='points' or f['field'] not in NUMERIC_FIELDS or decimal_value(f['value']) is None):raise ValueError('数值比较必须使用数值字段和有效数字；未执行查询。')
   if query['target']=='points' and f['field'] in NUMERIC_FIELDS and f['operator'] not in NUMERIC_OPS|{'is_blank','not_blank'} and not (f['operator']=='equals' and decimal_value(f['value']) is not None):raise ValueError('数值字段不能使用文本比较；请明确数值条件。')
+  if f['operator'] in DATE_OPS and (query['target']!='points' or f['field']!='time' or (parse_time(f['value']) is None and not (f['operator']=='date_equals' and calendar_period(f['value'])))):raise ValueError('日期比较需要有效时间字段与边界，未执行。')
   if f['field']=='identity' and f['operator'] not in ('contains','equals','starts_with'):raise ValueError('名称或编码联合搜索只支持包含、相等或前缀。')
   if not isinstance(f['value'],str) or len(f['value'])>300:raise ValueError('筛选值格式无效。')
   if query['target']=='points' and f['field']=='unit' and f['operator']=='equals':f['value']=canonical_unit(f['value'])
@@ -73,7 +75,8 @@ def predicates(query,alias='r'):
   else:col=alias+'.'+fields[field]
   op=f['operator'];v=f['value']
   if query['target']=='points' and field in NUMERIC_FIELDS and op=='equals':op='eq_num'
-  if op in NUMERIC_OPS:clauses.append('decimal_compare('+col+',?,?)=1');args.extend([op,v])
+  if op in DATE_OPS:clauses.append('date_compare('+col+',?,?)=1');args.extend([op,v])
+  elif op in NUMERIC_OPS:clauses.append('decimal_compare('+col+',?,?)=1');args.extend([op,v])
   elif op=='equals':clauses.append(('canonical_unit('+col+')' if query['target']=='points' and field=='unit' else col)+'=?');args.append(v)
   elif op=='contains':clauses.append('instr('+col+',?)>0');args.append(v)
   elif op=='not_contains':clauses.append('instr('+col+',?)=0');args.append(v)
@@ -92,7 +95,7 @@ def target_label(query):
 def describe(query):
  fields={'name':'名称','code':'编码','level':'层级','parent':'父编码','class_code':'所属部件类编码','source':'源系统','status':'状态','switch':'开关','unit':'单位','time':'测量时间'}
  fields.update({key:CATALOG[key]['label'] for key in POINT_RAW_FIELDS})
- ops={**NUMERIC_LABELS,'equals':'等于','contains':'包含','starts_with':'开头为','not_contains':'不包含','is_blank':'未提供','not_blank':'已提供'}
+ ops={**NUMERIC_LABELS,**DATE_LABELS,'equals':'等于','contains':'包含','starts_with':'开头为','not_contains':'不包含','is_blank':'未提供','not_blank':'已提供'}
  target=target_label(query)
  fields['identity']='（名称或编码）'
  if query.get('equipment_class'):target+='（设备分类'+query['equipment_class']['value']+'）'

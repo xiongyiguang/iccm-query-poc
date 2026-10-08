@@ -13,8 +13,8 @@ from pathlib import Path
 
 ROOT=Path(__file__).resolve().parents[1]
 LEGACY_SCHEMA=ROOT/'prompts/system/query-intent-v24.schema.json'
-SCHEMA=ROOT/'prompts/system/query-intent-v26.schema.json'
-PROMPT=ROOT/'prompts/system/query-intent-v26.txt'
+SCHEMA=ROOT/'prompts/system/query-intent-v32.schema.json'
+PROMPT=ROOT/'prompts/system/query-intent-v32.txt'
 MODEL=os.environ.get('DEEPSEEK_MODEL','deepseek-v4-flash')
 ENDPOINT='https://api.deepseek.com/chat/completions'
 
@@ -111,6 +111,9 @@ def validate(parsed):
                isinstance(e.get('code',e.get('name',e.get('identity'))),str) and 0<len(e.get('code',e.get('name',e.get('identity'))))<=300)
     if not valid:
         raise ModelUnavailable('模型输出结构不符合查询契约；未执行查询。')
+    from result_goal import validate_plan_goal
+    try:validate_plan_goal(parsed)
+    except ValueError as e:raise ModelUnavailable(str(e)) from None
     from typed_fields import validate_thresholds
     try:validate_thresholds(parsed)
     except ValueError as e:raise ModelUnavailable(str(e)) from None
@@ -227,6 +230,13 @@ def interpret(question,context,selection,store=None):
     knowledge=context.pop('verified_knowledge',None)
     verified_schema=context.pop('verified_schema',None)
     verified_references=context.pop('verified_references',None)
+    from clarification_state import resolve_answer
+    resolved=resolve_answer(question,context,selection,store)
+    if resolved:
+        plan,state,ids,resolution=resolved
+        TRACE.value={'engine':'business_request','source_question':question,'stage':'programmatic_clarification','business_request_previous':context.get('pending_business_request'),'business_request_state':state,'changed_tasks':ids,'validated_intent':plan,'clarification_resolution':resolution,'context_route':{'decision':{'needs_history':True}}}
+        if resolution.get('kind')=='selection':TRACE.value['programmatic_selection']=copy.deepcopy(selection)
+        return validate(plan)
     key=os.environ.get('DEEPSEEK_API_KEY','').strip()
     if not key:
         raise ModelUnavailable('DeepSeek 尚未配置 API 密钥。请在本机启动窗口配置；引导查询仍可使用。')
@@ -242,7 +252,7 @@ def interpret(question,context,selection,store=None):
         from attributes import CATALOG
         from typed_fields import NUMERIC_FIELDS
         route_catalog={k:CATALOG[k] for k in sorted(CATALOG)}
-        route_prompt='context-scope-v22.txt' if request_engine else 'context-scope-v7.txt'
+        route_prompt='context-scope-v28.txt' if request_engine else 'context-scope-v7.txt'
         from query_filters import POINT_FIELDS,POINT_RAW_FIELDS,OBJECT_FIELDS,OPERATORS
         from request_checklist import business_catalog,literal_references
         from business_request import source_segments
@@ -266,7 +276,7 @@ def interpret(question,context,selection,store=None):
             from request_contract import validate_route
             repairs=0
             try:
-                if request_engine:decision=unpack_route(decision)
+                if request_engine:decision=unpack_route(decision,require_current=True)
                 validate_route(decision,strict=True)
             except (ValueError,TypeError):
                 repair_body={**route_body,'messages':route_body['messages']+[{'role':'assistant','content':route_raw['choices'][0]['message']['content']},{'role':'user','content':'输出结构不合法。请根据原问题与字段目录修正字段和类型，保留完整语义；只输出符合当前完整字段约定的JSON，不生成数据答案。'}]}
@@ -274,7 +284,7 @@ def interpret(question,context,selection,store=None):
                 with urllib.request.build_opener(NoRedirect).open(repair_req,timeout=8) as response:route_raw=json.load(response)
                 TRACE.value['route_repair_raw']=route_raw['choices'][0]['message']['content']
                 decision=json.loads(route_raw['choices'][0]['message']['content'])
-                if request_engine:decision=unpack_route(decision,normalize_inactive=True)
+                if request_engine:decision=unpack_route(decision,normalize_inactive=True,require_current=True)
                 validate_route(decision,strict=True);repairs=1
             resolved=decision.get('resolved_question')
             if resolved is not None and (not isinstance(resolved,str) or not 0<len(resolved)<=2000):raise ValueError('route question')
@@ -304,7 +314,7 @@ def interpret(question,context,selection,store=None):
             try:
                 with urllib.request.build_opener(NoRedirect).open(req,timeout=12) as response:route_raw=json.load(response)
                 if route_raw['choices'][0].get('finish_reason')!='stop':raise ValueError('incomplete typed retry')
-                decision=unpack_route(json.loads(route_raw['choices'][0]['message']['content']),normalize_inactive=True)
+                decision=unpack_route(json.loads(route_raw['choices'][0]['message']['content']),normalize_inactive=True,require_current=True)
                 if decision.get('business_request') is None:raise ValueError('typed route unresolved')
                 validate_route(decision,strict=True);extracted=copy.deepcopy(decision)
                 decision,context,selection=scope_context(decision,original_context,selection)
@@ -339,7 +349,7 @@ def interpret(question,context,selection,store=None):
                 with urllib.request.build_opener(NoRedirect).open(req,timeout=12) as response:repaired=json.load(response)
                 choice=repaired['choices'][0]
                 if choice.get('finish_reason')!='stop':raise ValueError('incomplete repair')
-                repaired_route=unpack_route(json.loads(choice['message']['content']),normalize_inactive=True)
+                repaired_route=unpack_route(json.loads(choice['message']['content']),normalize_inactive=True,require_current=True)
                 if repaired_route['business_request'] is None:raise ValueError('cannot fall back')
                 TRACE.value['business_request_repair_raw']=choice['message']['content']
                 TRACE.value['business_request_delta']=repaired_route['business_request']
@@ -439,6 +449,13 @@ def bind_references(store,question,plan,context=None):
     from request_gateway import clear_verification,migrate,seal,validate_categories
     clear_verification()
     try:
+        if (get_trace() or {}).get('clarification_resolution'):
+            from clarification_state import resolve_answer
+            resolved=resolve_answer(question,context or {},get_trace().get('programmatic_selection'),store)
+            if not resolved or resolved[0]!=plan or resolved[3]!=get_trace()['clarification_resolution']:raise PlanInvalid('澄清选项与当前会话不一致，未执行。')
+            validate_categories(resolved[1],resolved[2],store)
+            bound=validate(plan);seal(store,question,bound)
+            return bound
         bound=_bind_references(store,question,plan)
         trace=get_trace()
         if trace is None:
@@ -504,10 +521,18 @@ def _bind_references(store,question,plan):
         except (urllib.error.URLError,TimeoutError,ValueError,TypeError,KeyError,IndexError) as error:
             TRACE.value['checklist_error']={'type':type(error).__name__,'reason':str(error)}
             if hasattr(error,'extraction_trace'):TRACE.value['checklist_failure']=error.extraction_trace
+            constraint=getattr(error,'business_constraint',None)
+            if constraint=={'code':'sort_limit_bounds','minimum':1,'maximum':100}:
+                # 只采用程序产生的能力约束，不根据模型错误文字判断业务。
+                TRACE.value['business_constraint']=copy.deepcopy(constraint)
+                result={'operation':'clarify','entity':None,'scope':'direct','clarification':'当前排序数量支持1至100条；本次数量理解未通过核验，请明确该范围内的数量。尚未执行查询，原条件已保留。'}
+                TRACE.value['validated_intent']=result
+                return result
             raise PlanInvalid('独立条件核对未完成；未执行查询，请重试。') from None
         TRACE.value['checklist_review']={k:v for k,v in checked.items() if k not in ('plan','state','changed','delta')}
         if checked['decision']!='accept' or checked.get('needs_review'):
             if checked.get('pending_state'):TRACE.value['pending_business_request']=checked['pending_state']
+            if checked.get('pending_slot'):TRACE.value['pending_slot']=checked['pending_slot']
             result={'operation':'clarify','entity':None,'scope':'direct','clarification':checked.get('reason','两份条件理解不一致，请明确要查询的条件。')+' 尚未执行查询，原条件已保留。'}
             TRACE.value['validated_intent']=result
             return result
@@ -535,6 +560,12 @@ def _bind_references(store,question,plan):
         plan=bound
     issues=diagnose(store,plan,question)
     if not issues:return plan
+    from clarification_state import resolve_answer
+    resolved=resolve_answer(question,context)
+    if resolved:
+        plan,state,ids,resolution=resolved
+        TRACE.value={'engine':'business_request','source_question':question,'stage':'programmatic_clarification','business_request_previous':context.get('pending_business_request'),'business_request_state':state,'changed_tasks':ids,'validated_intent':plan,'clarification_resolution':resolution,'context_route':{'decision':{'needs_history':True}}}
+        return validate(plan)
     key=os.environ.get('DEEPSEEK_API_KEY','').strip()
     if not key:raise ModelUnavailable('引用核验需要已配置模型；未执行疑似截断的引用。')
     body={'model':MODEL,'messages':[

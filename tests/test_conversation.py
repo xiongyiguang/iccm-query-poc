@@ -26,7 +26,7 @@ class ConversationHttpTests(FilterHttpTests):
    r=self.request('/api/query',{'session':'help-test','question':'怎么问你'})
   self.assertEqual(r['context'],before);self.assertEqual(r['status'],'conversation')
   self.assertNotIn('trace',r)
-  def next_call(q,c,s):
+  def next_call(q,c,s,store=None):
    self.assertEqual(c['entity'],initial['entity']);self.assertEqual(c['scope'],'all')
    self.assertEqual(c['dialogue'][-1]['question'],'怎么问你')
    return initial

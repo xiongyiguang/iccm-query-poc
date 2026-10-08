@@ -31,11 +31,12 @@ def describe_disagreement(candidate,independent,candidate_mode,independent_mode,
                              '，会影响后续对话保留的任务。') if candidate_mode!=independent_mode and not same_future else ''}
 
 
-def business_question(candidate, independent, candidate_mode, independent_mode):
+def business_question(candidate, independent, candidate_mode, independent_mode, comparison=None):
     """每次只询问一个存在分歧的业务条件，不暴露可编辑查询 DSL。"""
     scopes={'direct':'直接下级','all':'全部下级','unspecified':'下级范围'}
     populations={'parts':'仅部件','all_objects':'所有对象','unspecified':'对象范围'}
-    for a,b in zip(candidate,independent):
+    for index,(a,b) in enumerate(zip(candidate,independent)):
+        same_filters=bool(comparison and comparison["candidate"][index].get("filters")==comparison["independent"][index].get("filters"))
         if a.get('target')!=b.get('target'):
             names=[TARGET_LABELS.get(t.get('target'), '对象') for t in (a,b)]
             return f'您要查询{names[0]}，还是{names[1]}？'
@@ -46,11 +47,11 @@ def business_question(candidate, independent, candidate_mode, independent_mode):
         af=a.get('filters',[]);bf=b.get('filters',[])
         identities=lambda fs:[f['value'] for f in fs if f['field'] in ('identity','code','name') and f['operator']=='equals']
         av,bv=identities(af),identities(bf)
-        if av!=bv and len(av)==len(bv)==1:
+        if not same_filters and av!=bv and len(av)==len(bv)==1:
             return f'本次要查询「{av[0]}」，还是「{bv[0]}」？'
         if a.get('unit')!=b.get('unit'):
             return '这个数值条件使用什么单位？'
-        if af!=bf:
+        if not same_filters and af!=bf:
             # 去除来源和编号元数据，它们不是不同的业务条件。
             semantic=lambda fs:[{k:f[k] for k in ('field','operator','value')} for f in fs]
             if semantic(af)!=semantic(bf):
@@ -58,7 +59,8 @@ def business_question(candidate, independent, candidate_mode, independent_mode):
                 right=describe({'target':b['target'],'filters':semantic(bf)})
                 return f'您需要哪种查询范围：「{left}」还是「{right}」？'
         if a.get('properties')!=b.get('properties'):
-            labels=lambda t:'、'.join('全部属性' if p=='*' else CATALOG[p]['label'] for p in t.get('properties',[])) or '对象列表'
+            from typed_fields import THRESHOLDS
+            labels=lambda t:'报警阈值' if set(t.get('properties',[]))==set(THRESHOLDS) else '、'.join('全部属性' if p=='*' else CATALOG[p]['label'] for p in t.get('properties',[])) or '对象列表'
             return f'您要查看{labels(a)}，还是{labels(b)}？'
     if candidate_mode!=independent_mode:return '这是继续修改刚才的问题，还是开始一个新查询？'
     return '本次最先需要查询哪一项业务结果？'

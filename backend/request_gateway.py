@@ -26,6 +26,10 @@ def reference_context(context,selection,store,question=None,current_mentions=Non
             if (type(ref.get('start')) is int and type(ref.get('end')) is int and
                 0<=ref['start']<ref['end']<=len(question) and question[ref['start']:ref['end']]==ref.get('value')):
                 refs.append({**ref,'kind':'current_literal','quote':question[ref['start']:ref['end']]})
+    if question is not None:
+        # 并列省略引用必须重新由原话及原数据核验，不能信任传入的展开值。
+        for ref in literal_references(question,store):
+            if ref.get('kind') in ('coordinated_literal','schema_alias'):refs.append(ref)
     for turn,text in enumerate(utterances,1):
         for ref in literal_references(text,store):
             refs.append({**ref,'kind':'history_literal','quote':text,'turn':turn})
@@ -225,6 +229,7 @@ def migrate(store,question,plan,trace):
     trace['original_engine']=trace.get('engine');trace['engine']='business_request'
     if checked['decision']!='accept' or checked.get('needs_review'):
         if checked.get('pending_state'):trace['pending_business_request']=checked['pending_state']
+        if checked.get('pending_slot'):trace['pending_slot']=checked['pending_slot']
         return {'operation':'clarify','entity':None,'scope':'direct','clarification':checked.get('reason','查询条件尚未核对一致。')+' 尚未执行，原条件已保留。'}
     if checked['choice']=='independent':compiled,state,changed,delta=(checked[k] for k in ('plan','state','changed','delta'))
     validate_categories(state,changed,store)
@@ -274,6 +279,7 @@ def migrate_descendants(store,question,plan,trace):
     trace['original_engine']=trace.get('engine');trace['engine']='business_request'
     if checked['decision']!='accept' or checked.get('needs_review'):
         if checked.get('pending_state'):trace['pending_business_request']=checked['pending_state']
+        if checked.get('pending_slot'):trace['pending_slot']=checked['pending_slot']
         return {'operation':'clarify','entity':None,'scope':'direct','clarification':checked.get('reason','您要查询直接下级，还是全部下级？')}
     state,ids,delta=candidate,[tid],{'mode':mode,'tasks':[{'quote':question}]}
     if checked['choice']=='independent':state,ids,delta=checked['state'],checked['changed'],checked['delta']

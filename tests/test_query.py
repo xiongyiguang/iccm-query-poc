@@ -104,7 +104,7 @@ class HttpTests(unittest.TestCase):
         import threading,urllib.error
         from unittest.mock import patch
         started,release=threading.Event(),threading.Event();codes=[]
-        def model(*args):
+        def model(*args,**kwargs):
             started.set();release.wait(3)
             return {'operation':'parts','entity':{'tree':'config','code':'MOHB01'},'scope':'direct'}
         def request():

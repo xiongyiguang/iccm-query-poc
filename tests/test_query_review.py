@@ -177,7 +177,7 @@ class ReviewHttpTests(test_filters.FilterHttpTests):
     def issue(self,sid='review-http',p=None):
         import app
         p=p or plan()
-        def interpret(q,c,s):
+        def interpret(q,c,s,store=None):
             self.model_trace(p,q)
             return copy.deepcopy(p)
         # 旧的已保存确认接口仍须可测试，新查询不再生成确认单。
@@ -223,7 +223,7 @@ class ReviewHttpTests(test_filters.FilterHttpTests):
     def test_simple_independent_query_still_direct(self):
         import app
         p={**plan(),'query':{'target':'parts','filters':[condition('name','contains','ABC')]}}
-        def interpret(q,c,s):self.model_trace(p,q);return p
+        def interpret(q,c,s,store=None):self.model_trace(p,q);return p
         with patch.object(app,'interpret',side_effect=interpret),patch('request_checklist.gate',return_value={'decision':'accept','choice':'candidate'}):
             r=self.request('/api/query',{'session':'review-simple','question':'名称含ABC的部件'})
         self.assertEqual(r['status'],'ok');self.assertNotIn('review',r)

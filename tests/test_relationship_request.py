@@ -145,7 +145,7 @@ class RelationshipTests(unittest.TestCase):
 def serve_fixture():
  import app,request_checklist
  app.STORE=app.IMPORTS.load()
- def interpret(question,context,selection):
+ def interpret(question,context,selection,store=None):
   p,state,changed=seed(population='parts')
   model.TRACE.value={'engine':'business_request','business_request_state':state,'changed_tasks':changed,
    'business_request_delta':{'mode':'new','tasks':[{'quote':question}]}}

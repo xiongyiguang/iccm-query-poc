@@ -74,7 +74,7 @@ class FilterHttpTests(unittest.TestCase):
   from unittest.mock import patch
   prior={'operation':'search','entity':None,'scope':'direct','query':{'target':'parts','filters':[{'field':'name','operator':'contains','value':'1'}]}}
   self.request('/api/query',{'session':'filter-follow','intent':prior})
-  def interpret(question,context,selection):
+  def interpret(question,context,selection,store=None):
    self.assertEqual(context['query'],prior['query'])
    return {'operation':'clarify','entity':None,'scope':'direct','clarification':'test'}
   with patch.object(self.app,'interpret',interpret):

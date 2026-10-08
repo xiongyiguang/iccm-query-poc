@@ -20,7 +20,7 @@ def exact_lookup_subject(intent,result,version):
  return {k:row[k] for k in ('tree','code','name')}|{'version':version}
 
 def task_context(intent,result):
- if result.get('status')=='clarify':
+ if result.get('status') in ('clarify','data_insufficient'):
   return {'pending_request':intent,'clarification':result['answer']}
  if result.get('outcome'):
   return {'pending_request':intent,'outcome':result['outcome']}
@@ -50,7 +50,7 @@ def execute_plan(store,intent):
   except QueryError as e:
    r=dict(answer=str(e),status='error',records=[],evidence=[],metrics=[],path=[],entity=None,scope='direct',note='此项未完成；其他独立查询正常处理。')
   r={**r,'task_number':i,'task_question':task['question']}
-  r['task_context']=task_context(task['intent'],r) if r['status'] in ('ok','clarify') or r.get('outcome') else {'entity':None,'scope':'direct','operation':task['intent']['operation']}
+  r['task_context']=task_context(task['intent'],r) if r['status'] in ('ok','clarify','data_insufficient') or r.get('outcome') else {'entity':None,'scope':'direct','operation':task['intent']['operation']}
   if r['status']=='clarify':r['task_context']['pending_question']=task['question']
   results.append(r)
  answer='已分别处理 '+str(len(results))+' 个问题。'
@@ -66,7 +66,11 @@ def execute_plan(store,intent):
 
 
 def execute_one(store,intent):
- try:result=store.execute(intent)
+ execution={k:v for k,v in intent.items() if k!='result_goal'}
+ try:
+  result=store.execute(execution)
+  from result_goal import apply_goal
+  result=apply_goal(store,intent,result)
  except BusinessOutcome as issue:
   result=dict(status=issue.status,answer=str(issue),records=[],metrics=[],evidence=[],path=[],entity=None,scope=intent['scope'],
               note='尚未完成对象定位或关联核验，未计算数量；原请求已保留，可更正后继续。',
@@ -85,6 +89,9 @@ def execute_one(store,intent):
           'query':query,'analysis':intent.get('analysis'),
           'grain':result.get('grain') or ('measurement_record' if query and query['target']=='points' else 'config_object' if query and query['target'] in ('parts','equipment','config') else 'object'),
           'classification_coverage':result.get('classification_coverage')}
+ if 'result_goal' in intent:
+  if not result.get('goal_receipt',{}).get('completed'):raise QueryError('执行回执未完成结果目标，未发布成功答案。')
+  receipt['result_goal']=intent['result_goal'];receipt['goal_receipt']=result['goal_receipt']
  result['query_receipt']=receipt
  subject=exact_lookup_subject(intent,result,store.version)
  if subject:receipt['confirmed_subject']=subject

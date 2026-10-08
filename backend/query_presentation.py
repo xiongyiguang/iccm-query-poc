@@ -14,7 +14,9 @@ def attach_basis(result,intent):
     scope=intent.get('scope','direct')
     op=intent['operation'];analysis=intent.get('analysis') or {}
     summary=[]
-    if intent.get('entity') and op in ('parts','measurements','analyze','search'):
+    if entity and (q.get('target')=='points' or op in ('measurements','alarms')) and op not in ('attributes','measurement','threshold'):
+        summary.append('当前PBS对象自身及全部后代关联的测点记录')
+    elif entity and op in ('parts','analyze','search'):
         summary.append('全部下级' if scope=='all' else '直接下级')
     if analysis.get('group_by')=='class_code':summary.append('按部件类别去重')
     elif analysis.get('group_by')=='type':summary.append('按对象类型分组')

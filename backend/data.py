@@ -32,6 +32,8 @@ class Store:
         self.db.row_factory = sqlite3.Row
         from typed_fields import compare,canonical_unit
         self.db.create_function('decimal_compare',3,compare,deterministic=True)
+        from date_fields import compare_time
+        self.db.create_function('date_compare',3,compare_time,deterministic=True)
         self.db.create_function('canonical_unit',1,canonical_unit,deterministic=True)
         self.db.executescript('''
           CREATE TABLE objects(tree TEXT,code TEXT,parent TEXT,name TEXT,level TEXT,class_code TEXT,source TEXT,line INT,raw TEXT,PRIMARY KEY(tree,code));

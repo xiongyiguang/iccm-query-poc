@@ -68,6 +68,9 @@ class Handler(BaseHTTPRequestHandler):
                 counts={**{k:0 for k in LABELS},**{r['tree']:r['n'] for r in store.rows('SELECT tree,count(*) n FROM objects GROUP BY tree')}}
                 counts['points']=store.rows('SELECT count(*) n FROM points')[0]['n']
                 return self.send(200,{'token':TOKEN,'version':store.version,'sources':store.inputs,'sample_available':bool(store.rows("SELECT 1 FROM objects WHERE tree='pbs' AND code='XJ2ABC002MO&MOHB01'")),'model':status(),'counts':counts,'auth_required':AUTH.required(),'field_labels':{k:v['label'] for k,v in __import__('attributes').CATALOG.items()}})
+            if url.path=='/api/operations':
+                from operation_capabilities import operations_for
+                return self.send(200,operations_for(store,{'tree':q.get('tree',[''])[0],'code':q.get('code',[''])[0]}))
             if url.path=='/api/browse':
                 return self.send(200,store.browse(q.get('tree',['pbs'])[0],q.get('code',[None])[0],q.get('q',[''])[0][:200],int(q.get('page',['0'])[0])))
             if url.path=='/api/objects':
@@ -159,7 +162,8 @@ class Handler(BaseHTTPRequestHandler):
                     SESSIONS[sid]={'context':{},'results':{},'busy':False}
                 session=SESSIONS[sid]
                 if session['busy']: raise QueryError('上一条请求尚未完成，请稍后再试。')
-                session['busy']=True
+                request_owner=object()
+                session['busy']=request_owner
                 session['touched']=time.monotonic()
                 context=copy.deepcopy(session['context'])
                 if not confirming:session.pop('pending_review',None)
@@ -188,7 +192,7 @@ class Handler(BaseHTTPRequestHandler):
                     model_context['verified_schema']={'business_catalog':business_catalog(store),'literal_references':literal_references(question,store)}
                     from request_gateway import reference_context
                     model_context['verified_references']=reference_context(model_context,body.get('selection'),store,question,model_context['verified_schema']['literal_references'])
-                    intent=interpret(question,model_context,body.get('selection'))
+                    intent=interpret(question,model_context,body.get('selection'),store=store)
                     with LOCK:
                         if SESSIONS.get(sid) is not session:return self.send(409,{'error':'会话已取消，未继续核验或执行查询。'})
                     from model import bind_references
@@ -213,12 +217,12 @@ class Handler(BaseHTTPRequestHandler):
                 with LOCK:
                     if SESSIONS.get(sid) is not session:
                         return self.send(409,{'error':'会话已取消，结果未写入。'})
-                    if result['status'] in ('ok','clarify') or result.get('outcome'):
+                    if result['status'] in ('ok','clarify','data_insufficient') or result.get('outcome'):
                         pending=task_context(intent,result)
                         route=(planning_trace.get('context_route') or {}) if mode in ('model','confirmed') else {}
                         prior={} if route.get('decision',{}).get('needs_history') is False else context
-                        session['context']={**prior,**pending} if result['status']=='clarify' else pending
-                        if result['status']=='clarify':
+                        session['context']={**prior,**pending} if result['status'] in ('clarify','data_insufficient') else pending
+                        if result['status'] in ('clarify','data_insufficient'):
                             continuing=mode in ('model','confirmed') and route.get('decision',{}).get('needs_history')
                             session['context']['pending_question']=(context.get('pending_question') if continuing else None) or body.get('question','')
                             session['context']['pending_reference']=route.get('decision',{}).get('reference') or (context.get('pending_reference') if continuing else None)
@@ -238,11 +242,17 @@ class Handler(BaseHTTPRequestHandler):
                         from business_request import commit_state
                         session['context']=commit_state(session['context'],planning_trace,result,context)
                         session['dialogue']=(session.get('dialogue',[])+[{'question':question,'answer':('；'.join(item['task_question']+'：'+item['answer'] for item in result['items']) if result['status']=='batch' else result['answer'])[:600]}])[-6:]
-                return self.send(200,{**public_result(result),'result':rid,'mode':mode,'context':session['context'],'server_ms':elapsed,'timings_ms':{'planning':round((planning_done-start)*1000),'execution':round((execution_done-planning_done)*1000)},'continuation':snapshot(sid,session,store.version),'version':store.version,**({'trace':planning_trace} if mode in ('model','confirmed') and body.get('trace') is True else {}),**({'review_confirmation':{'id':planning_trace['review_id'],'question':question,'preparation_ms':planning_trace['review_preparation_ms'],'system_total_ms':planning_trace['review_preparation_ms']+elapsed}} if mode=='confirmed' else {})})
+                response_payload={**public_result(result),'result':rid,'mode':mode,'context':session['context'],'server_ms':elapsed,'timings_ms':{'planning':round((planning_done-start)*1000),'execution':round((execution_done-planning_done)*1000)},'continuation':snapshot(sid,session,store.version),'version':store.version,**({'trace':planning_trace} if mode in ('model','confirmed') and body.get('trace') is True else {}),**({'review_confirmation':{'id':planning_trace['review_id'],'question':question,'preparation_ms':planning_trace['review_preparation_ms'],'system_total_ms':planning_trace['review_preparation_ms']+elapsed}} if mode=='confirmed' else {})}
+                # 状态和续问签名均已完成，发送前允许下一请求接续。
+                with LOCK:
+                    if session.get('busy') is request_owner:session['busy']=False
+                return self.send(200,response_payload)
             finally:
                 from request_checklist import discard_extraction
                 discard_extraction()
-                with LOCK: session['busy']=False
+                with LOCK:
+                    # 迟到清理只能释放本请求，不能清掉下一请求的在途标记。
+                    if session.get('busy') is request_owner:session['busy']=False
         except (QueryError,ValueError,TypeError,KeyError) as e:
             payload={'error':str(e),'error_code':'execution_invalid','request_id':uuid.uuid4().hex}
             if 'body' in locals() and body.get('trace') is True:

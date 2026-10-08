@@ -80,7 +80,7 @@ class ChecklistTests(unittest.TestCase):
     def test_primary_missing_envelope_field_gets_one_bounded_structural_repair(self):
         import model
         q='value above 5'
-        request={'version':1,'mode':'new','tasks':[{'base':None,'quote':q,'set':{'operation':'search','target':'points'},'filters':[{'action':'add','ids':[],'quote':q,'conditions':[h.f('value','gt','5')]}],'unit':{'state':'none','value':''}}]}
+        request={'version':10,'roles':{'background':[],'output':[1],'control':[]},'mode':'new','tasks':[{'base':None,'action':'request','request_spans':[1],'spans':[1],'purpose':'data','subject_scope':'none','set':{'operation':'search','target':'points','result_goal':__import__('result_goal').default_goal('search')},'filters':[{'action':'add','ids':[],'spans':[1],'conditions':[h.f('value','gt','5')]}],'unit':{'state':'none','value':''}}]}
         def response(value):
             reply=MagicMock();reply.__enter__.return_value.read.return_value=json.dumps({'choices':[{'finish_reason':'stop','message':{'content':json.dumps(value)}}]}).encode();return reply
         with patch.dict(model.os.environ,{'DEEPSEEK_API_KEY':'test-only','ICCM_REQUEST_ENGINE':'contract'}),patch('urllib.request.build_opener') as net:
@@ -198,7 +198,7 @@ class ChecklistTests(unittest.TestCase):
         c=checklist(q,[(h.f('source','equals','源系统1'),None),(h.f('value','gt','5'),None),(h.f('value','lt','10'),q)],'t1','update')
         d=to_delta(c,p,q);self.assertEqual(len(d['tasks'][0]['filters']),1);self.assertEqual(d['tasks'][0]['filters'][0]['action'],'add')
     def test_no_candidate_in_independent_extractor_input(self):
-        response=MagicMock();response.__enter__.return_value.read.return_value=json.dumps({'model':'mock','choices':[{'finish_reason':'stop','message':{'content':json.dumps({'version':2,'status':'unsupported','mode':'new','tasks':[],'clarification':'q'}),'reasoning_content':'not retained'}}]}).encode()
+        response=MagicMock();response.__enter__.return_value.read.return_value=json.dumps({'model':'mock','choices':[{'finish_reason':'stop','message':{'content':json.dumps({'version':13,'roles':{'background':[],'output':[1],'control':[]},'status':'unsupported','mode':'new','tasks':[],'clarification':'q'}),'reasoning_content':'not retained'}}]}).encode()
         with patch('urllib.request.build_opener') as net:
             net.return_value.open.return_value=response;_,trace=extract('question',None)
             body=json.loads(net.return_value.open.call_args.args[0].data);payload=json.loads(body['messages'][1]['content'])

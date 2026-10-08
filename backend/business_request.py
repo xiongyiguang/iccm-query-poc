@@ -41,7 +41,7 @@ def resolve_request_actions(payload,question,id_key):
 retain 不重建状态，也不能授权任何输出。"""
     out=copy.deepcopy(payload);segments={s['id']:s for s in source_segments(question)}
     roles=out.pop('roles',None)
-    modern=out.get('version') in (6,8,9,10,11,12) or id_key=='base' and out.get('version')==7
+    modern=out.get('version') in (6,8,9,10,11,12,13) or id_key=='base' and out.get('version')==7
     require_keys(roles,{'background','output','control'} if modern else {'background','request','context'},'roles')
     requested=roles['output' if modern else 'request']
     seen=set()
@@ -76,9 +76,9 @@ retain 不重建状态，也不能授权任何输出。"""
 
 
 def resolve_delta_sources(delta,question):
-    if not isinstance(delta,dict) or delta.get('version') not in (2,3,4,5,6,7,8,9):return delta
-    explicit_execution=delta['version'] in (3,4,5,6,7,8,9)
-    out=resolve_request_actions(delta,question,'base') if delta['version'] in (5,6,7,8,9) else copy.deepcopy(delta)
+    if not isinstance(delta,dict) or delta.get('version') not in (2,3,4,5,6,7,8,9,10):return delta
+    explicit_execution=delta['version'] in (3,4,5,6,7,8,9,10)
+    out=resolve_request_actions(delta,question,'base') if delta['version'] in (5,6,7,8,9,10) else copy.deepcopy(delta)
     segments={s['id']:s for s in source_segments(question)}
     def resolve(item):
         require(isinstance(item,dict) and 'quote' not in item,'片段协议不能重写原话。')
@@ -89,8 +89,13 @@ def resolve_delta_sources(delta,question):
     for task in out['tasks']:
         if explicit_execution:
             require(isinstance(task,dict) and type(task.get('execute')) is bool,'V3任务必须明确execute布尔值。')
-        if delta['version'] in (5,6,7,8,9) and task['execute'] is False:continue
-        if delta['version'] in (7,8,9):task['_purpose_required']=True
+        if delta['version'] in (5,6,7,8,9,10) and task['execute'] is False:continue
+        if delta['version'] in (7,8,9,10):task['_purpose_required']=True
+        if delta['version']==10:task['_goal_required']=True
+        if delta['version']==10 and 'result_goal' in task:
+            goal=task.pop('result_goal');fields=task.get('set')
+            require(isinstance(fields,dict) and ('result_goal' not in fields or fields['result_goal']==goal),'结果目标重复且冲突，未执行。')
+            fields['result_goal']=goal
         resolve(task)
         require(isinstance(task.get('filters'),list),'业务请求缺少条件变更。')
         for edit in task['filters']:resolve(edit)
@@ -102,14 +107,15 @@ def extraction_context(context):
     state=context.get('pending_business_request') or context.get('business_request')
     if not state:return context
     return {'business_request':state,
-            'request_status':('awaiting_domain' if state.get('pending_reason')=='domain' else 'awaiting_relationship' if state.get('pending_reason')=='relationship' else 'awaiting_unit') if context.get('pending_business_request') else 'confirmed',
-            'task_directory':[{'number':i,'id':t['id'],'operation':t['operation'],'target':t['target'],'scope':t['scope'],**({'population':t['population']} if t['operation']=='descendants' else {}),'filters':t['filters'],'properties':t['properties'],**({'topics':t['topics']} if t['operation'] in NOTE_OPERATIONS else {})} for i,t in enumerate(state['tasks'],1)],
+            'request_status':('awaiting_'+state['pending_reason'] if state.get('pending_reason') else 'awaiting_unit' if any(t.get('unit',{}).get('state')=='ambiguous' for t in state.get('tasks',[])) else 'awaiting_clarification') if context.get('pending_business_request') else 'confirmed',
+            'task_directory':[{'number':i,'id':t['id'],'operation':t['operation'],'target':t['target'],'scope':t['scope'],**({'population':t['population']} if t['operation']=='descendants' else {}),'filters':t['filters'],'properties':t['properties'],**({'result_goal':t['result_goal']} if 'result_goal' in t else {}),**({'topics':t['topics']} if t['operation'] in NOTE_OPERATIONS else {})} for i,t in enumerate(state['tasks'],1)],
             'last_executed_tasks':state.get('last_executed_tasks',[]),
             'pending_question':context.get('pending_question'),
+            'pending_slot':copy.deepcopy(context.get('pending_slot')),
             'legacy_context':{k:v for k,v in context.items() if k not in ('business_request','pending_business_request','dialogue')}}
 
 
-def unpack_route(envelope,normalize_inactive=False):
+def unpack_route(envelope,normalize_inactive=False,require_current=False):
     # 受限修复可能仍遗漏未启用的联合类型分支；只补 null 不改变语义，
     # 不能编造启用的请求或替用户选择两个请求之一。
     if normalize_inactive and isinstance(envelope,dict) and len(envelope)==1:
@@ -121,6 +127,7 @@ def unpack_route(envelope,normalize_inactive=False):
     if request is None:
         require(isinstance(legacy,dict), '兼容路径必须提供完整语义槽位。')
         return {**legacy,'business_request':None}
+    if require_current:require(isinstance(request,dict) and request.get('version')==10,'当前语义入口必须使用V10完整结果目标契约，不能降级到旧协议。')
     require(isinstance(request,dict) and legacy is None, '业务请求不能同时附带另一套自由规划。')
     return {'needs_history':request.get('mode')=='update','identifier_field':None,'resolved_question':None,
             'domain':None,'thresholds':None,'comparisons':[],'unit':{'state':'none','value':''},
@@ -131,6 +138,7 @@ def unpack_route(envelope,normalize_inactive=False):
 def ground_identifiers(store,state,changed):
     """依据每项任务自己的原话片段，补全被截断的字面引用。"""
     import re
+    from identifier_aliases import complete_literal_pattern
     out=copy.deepcopy(state)
     for task in out['tasks']:
         if task['id'] not in changed:continue
@@ -149,8 +157,26 @@ def ground_identifiers(store,state,changed):
                 rows=store.rows(f'SELECT DISTINCT {column} AS value FROM {table} WHERE {column}<>\'\' AND instr(?,{column})>0 AND instr({column},?)>0'+where+' LIMIT 20',[quote,value]+args)
                 for row in rows:
                     full=row['value']
-                    if re.search(r'(?<![A-Za-z0-9_&.#-])'+re.escape(full)+r'(?![A-Za-z0-9_&.#-])',quote):candidates.add(full)
-            if exact and (value in candidates or f['source'].get('kind')=='executed_receipt'):continue
+                    if re.search(complete_literal_pattern(full),quote):candidates.add(full)
+            # 脱敏名称的字段简称只在目录和原文共同核验、且无同字面精确对象时展开。
+            if not exact and f['field'] in ('name','identity'):
+                from identifier_aliases import schema_name_aliases
+                aliases=[r for r in schema_name_aliases(quote,store) if r['quote']==value and (r['domain']==target or target=='objects' and r['domain']!='points')]
+                require(len({r['value'] for r in aliases})<=1,'该名称简称对应多个对象，请明确完整名称。')
+                if aliases:
+                    f['value']=aliases[0]['value'];f['resolution']={'kind':'schema_alias','before':value,'raw_field_label':aliases[0]['raw_field_label'],'quote':value}
+                    continue
+            if exact and f['field'] in ('name','identity'):
+                from identifier_aliases import schema_name_aliases
+                verified=[r for r in schema_name_aliases(quote,store) if r['value']==value and (r['domain']==target or target=='objects' and r['domain']!='points')]
+                if verified:
+                    f['resolution']={'kind':'schema_alias','before':verified[0]['quote'],'raw_field_label':verified[0]['raw_field_label'],'quote':verified[0]['quote']}
+                    continue
+            # 继承点选条件时原话只是续问，身份来自服务器已经核验的候选点选。
+            selection=f['source'].get('selection',{})
+            selected=(f['source'].get('kind')=='user_selection' and f['field']=='code' and
+                      selection.get('code')==value and selection.get('tree')==('pbs' if target=='points' else TARGETS[target][0]))
+            if exact and (value in candidates or f['source'].get('kind')=='executed_receipt' or selected):continue
             require(len(candidates)<=1,'原话片段匹配多个完整对象标识，请明确对象；未执行。')
             if candidates:
                 f['value']=next(iter(candidates));f['resolution']={'kind':'exact_literal_data','before':value}
@@ -216,7 +242,7 @@ def compile_task(task,allow_ambiguous=False):
             require(topics==['limits'],'不支持任务只能说明能力边界，不能附加查询或其他说明。')
             return {'operation':'conversation','entity':None,'scope':'direct','clarification':'','message':DOMAIN_FACTS['limits']}
         return {'operation':'explain','entity':None,'scope':'direct','clarification':'','topics':copy.deepcopy(topics)}
-    require(set(task) == {'id','operation','target','scope','properties','filters','sources','unit'} | ({'population'} if task['operation']=='descendants' else set()), '业务任务结构无效。')
+    require(set(task) == {'id','operation','target','scope','properties','filters','sources','unit'} | ({'result_goal'} if 'result_goal' in task else set()) | ({'population'} if task['operation']=='descendants' else set()), '业务任务结构无效。')
     if task['operation']=='descendants':
         from relationship_request import compile_relationship
         return compile_relationship(task,allow_ambiguous)
@@ -241,8 +267,14 @@ def compile_task(task,allow_ambiguous=False):
         identities = [f for f in filters if f['field'] in ('name','code','identity') and f['operator'] == 'equals']
         require(len(identities) == 1, '属性查询需要一个精确对象标识；未执行宽泛属性查询。')
     plan = {'operation':task['operation'], 'entity':None, 'scope':'direct', 'clarification':'', 'query':query}
+    if 'result_goal' in task:
+        from result_goal import validate_plan_goal
+        plan['result_goal']=copy.deepcopy(task['result_goal'])
+        validate_plan_goal(plan)
     if props:
         plan['properties'] = copy.deepcopy(props)
+    if task.get('result_goal',{}).get('kind')=='unsupported':
+        return {'operation':'clarify','entity':None,'scope':'direct','clarification':'此结果目标尚不支持，未执行替代查询。'}
     return plan
 
 
@@ -263,7 +295,7 @@ def apply_delta(delta, previous, question, reference_context=None):
         return {'id':tid,'operation':None,'target':None,'scope':'direct','properties':[], 'filters':[],
                 'sources':{'scope':{'kind':'default','value':'direct'},'properties':{'kind':'default','value':[]}},'unit':{'state':'none','value':''}}
     for index, patch in enumerate(patches,1):
-        require(isinstance(patch,dict) and {'base','quote','set','filters'}<=set(patch) and not set(patch)-{'base','quote','set','filters','unit','replace_task','retain_filters','execute','request_quote','purpose','subject_scope','_purpose_required'}, '任务变更结构无效。')
+        require(isinstance(patch,dict) and {'base','quote','set','filters'}<=set(patch) and not set(patch)-{'base','quote','set','filters','unit','replace_task','retain_filters','execute','request_quote','purpose','subject_scope','_purpose_required','_goal_required'}, '任务变更结构无效。')
         execute=patch.get('execute',True)
         require(type(execute) is bool,'execute必须是布尔值。')
         require(execute or delta['mode']=='update','新任务不能仅保留而不执行。')
@@ -277,7 +309,7 @@ def apply_delta(delta, previous, question, reference_context=None):
 
         task_source = evidence(patch['quote'],question,revision) if execute or patch['quote'] is not None else None
         fields = patch['set']; edits = patch['filters']
-        require(isinstance(fields,dict) and not set(fields)-{'operation','target','scope','properties','topics','population'}, '任务设置字段无效。')
+        require(isinstance(fields,dict) and not set(fields)-{'operation','target','scope','properties','topics','population','result_goal'}, '任务设置字段无效。')
         require(isinstance(edits,list) and len(edits) <= 8, '筛选变更数量无效。')
         requested_operation=fields.get('operation')
         if isinstance(requested_operation,dict):requested_operation=requested_operation.get('value')
@@ -338,14 +370,14 @@ def apply_delta(delta, previous, question, reference_context=None):
             require(not edits and ('unit' not in patch or patch['unit']==task['unit']),
                     '补充对象树只能填补待确认域，不能同时修改对象或单位。')
             for key,spec in fields.items():
-                value=spec.get('value') if isinstance(spec,dict) else spec
+                value=spec.get('value') if isinstance(spec,dict) and key!='result_goal' else spec
                 require(key=='target' or value==task.get(key),'补充对象树必须保留原操作和返回字段。')
         touched.add(task['id']); consumed = set()
         if 'request_quote' in patch:task['sources']['request']=evidence(patch['request_quote'],question,revision)
         note=(requested_operation or task['operation']) in NOTE_OPERATIONS
         require(not note or not edits and 'unit' not in patch and 'purpose' not in patch and 'subject_scope' not in patch and not set(fields)-{'operation','topics'},'说明任务不能修改查询对象、筛选、字段或单位。')
         for name, spec in fields.items():
-            if isinstance(spec,dict):
+            if isinstance(spec,dict) and name!='result_goal':
                 require(set(spec) == {'value','quote'}, '字段设置缺少值或来源。')
                 source = evidence(spec['quote'],question,revision);value=spec['value']
             else:source=task_source;value=spec
@@ -357,6 +389,11 @@ def apply_delta(delta, previous, question, reference_context=None):
             plan=compile_task(task)
             plans.append({'question':patch['quote'],'intent':plan});changed.append(task['id'])
             continue
+        for operand in task.get('result_goal',{}).get('operands',[]):
+            val=operand.get('value');field=operand.get('field')
+            require(isinstance(val,str) and (val in question or any(ref.get('value')==val and ref.get('field') in (field,'identity') and ref.get('domain') in (None,task['target']) for ref in (reference_context or {}).get('references',[]))),'计算对象缺少原话或经过核验的引用，未计算。')
+        if patch.get('_goal_required') and task['operation'] in ('search','attributes'):
+            require('result_goal' in task,'当前协议必须完整保存结果目标；不能降级为记录列表。')
         if patch.get('_purpose_required'):
             require('purpose' in patch and 'subject_scope' in patch,'V7查询任务须声明purpose和subject_scope。')
         if 'unit' in patch:
@@ -384,7 +421,7 @@ def apply_delta(delta, previous, question, reference_context=None):
             for condition in conditions:
                 require_keys(condition,{'field','operator','value'},'tasks[].filters[].conditions[]（来源spans放在filters动作层）')
                 f = copy.deepcopy(condition);filter_source=source
-                # 完整原文标识不能从尾部片段重新拼接。
+                # 完整标识须有原话或已核验引用，不能由模型自由拼接。
                 if f['field'] in ('source','name','code','identity') and f['operator'] == 'equals':
                     require(isinstance(f['value'],str), '精确标识必须为文字。')
                     if f['value'] not in source['quote']:
@@ -462,27 +499,46 @@ def apply_delta(delta, previous, question, reference_context=None):
 
 
 def commit_state(context, trace, result, previous=None):
-    """只提交执行成功的任务，错误或澄清保留原状态。"""
-    state = (trace or {}).get('business_request_state')
-    success = result.get('status') == 'ok' or (result.get('status') == 'batch' and all(i.get('status') == 'ok' for i in result.get('items',[])))
-    if state and (trace or {}).get('changed_tasks'):
+    """成功回执和未完成草稿分开提交；只完成本轮实际交付的任务。"""
+    trace=trace or {};state=trace.get('business_request_state')
+    success=result.get('status')=='ok' or (result.get('status')=='batch' and all(i.get('status')=='ok' for i in result.get('items',[])))
+    pending=[]
+    if state and trace.get('changed_tasks'):
         ids=trace['changed_tasks'];items=result.get('items',[]) if result.get('status')=='batch' else [result]
         by_id={t['id']:t for t in state['tasks']}
-        success=len(items)==len(ids) and all(tid in by_id and item.get('status')==('conversation' if by_id[tid]['operation'] in NOTE_OPERATIONS else 'ok') for tid,item in zip(ids,items))
-    if state and success:
-        context['business_request'] = copy.deepcopy(state)
-        context.pop('pending_business_request',None)
-    elif (state or (trace or {}).get('engine')=='business_request') and previous and previous.get('business_request'):
-        context['business_request'] = copy.deepcopy(previous['business_request'])
-    elif success and (trace or {}).get('engine')=='legacy':
-        # 迁移桥接层原样保留已经执行的普通查询。
-        # 来源标注为执行回执，不能冒充语义理解已核验。
+        # 新话题不能因任务编号恰好相同而继承上一组未完成任务。
+        mode=(trace.get('business_request_delta') or {}).get('mode')
+        old_draft=(previous or {}).get('pending_business_request') if mode!='new' else None
+        pending=set((old_draft or {}).get('pending_tasks',(old_draft or {}).get('last_executed_tasks',[]))) & set(by_id)
+        completed=set()
+        for tid,item in zip(ids,items):
+            expected='conversation' if by_id.get(tid,{}).get('operation') in NOTE_OPERATIONS else 'ok'
+            if tid in by_id and item.get('status')==expected:completed.add(tid)
+        pending=(pending-set(ids)) | (set(ids)-completed)
+        pending=[t['id'] for t in state['tasks'] if t['id'] in pending]
+        success=len(items)==len(ids) and len(completed)==len(ids)
+    if state and success and not pending:
+        confirmed=copy.deepcopy(state);confirmed.pop('pending_reason',None);confirmed.pop('pending_tasks',None)
+        context['business_request']=confirmed;context.pop('pending_business_request',None)
+    elif (state or trace.get('engine')=='business_request') and previous and previous.get('business_request'):
+        context['business_request']=copy.deepcopy(previous['business_request'])
+    elif success and trace.get('engine')=='legacy':
+        # 迁移桥接层保存已执行的只读查询，不冒充模型语义核验。
         imported=import_receipt(result,trace.get('source_question',''),previous)
         if imported:context['business_request']=imported
-    if result.get('status')=='clarify' and (trace or {}).get('pending_business_request'):
+    if result.get('status')=='clarify' and trace.get('pending_business_request'):
         context['pending_business_request']=copy.deepcopy(trace['pending_business_request'])
-    elif success:
+    elif state and pending and trace.get('engine')=='business_request':
+        draft=copy.deepcopy(state);draft['pending_tasks']=pending
+        draft['pending_reason']='object_resolution' if result.get('outcome') else (draft.get('pending_reason') or 'result_goal')
+        context['pending_business_request']=draft
+    elif success and not pending:
         context.pop('pending_business_request',None)
+    pending_slot=trace.get('pending_slot')
+    if result.get('status')=='clarify' and pending_slot:context['pending_slot']=copy.deepcopy(pending_slot)
+    elif pending and (previous or {}).get('pending_slot',{}).get('task_id') in pending:
+        context['pending_slot']=copy.deepcopy(previous['pending_slot'])
+    elif success or result.get('outcome'):context.pop('pending_slot',None)
     return context
 
 
@@ -500,6 +556,7 @@ def import_receipt(result,question,previous=None):
         if f['field']=='unit' and f['operator']=='equals':unit={'state':'specified','value':canonical_unit(f['value'])}
     task={'id':'t1','operation':operation,'target':query['target'],'scope':'direct','properties':copy.deepcopy(props),'filters':filters,'unit':unit,
           'sources':{key:source for key in ('operation','target','scope','properties','unit')}}
+    if receipt.get('result_goal'):task['result_goal']=copy.deepcopy(receipt['result_goal'])
     try:compile_task(task)
     except (ValueError,TypeError,KeyError):return None
     return {'version':1,'revision':revision,'next_filter_id':len(filters)+1,'tasks':[task],'last_executed_tasks':['t1'],'origin':'executed_legacy_receipt'}

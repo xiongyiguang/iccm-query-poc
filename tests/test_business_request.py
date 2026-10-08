@@ -224,7 +224,7 @@ class BusinessRequestTests(unittest.TestCase):
     def test_single_extraction_compiles_without_second_model(self):
         import model
         from unittest.mock import patch as mockpatch,MagicMock
-        request=delta([patch(None,{'operation':spec('search'),'target':spec('points')},[edit('add',[],[condition('value','gt','5')])])])
+        request={'version':10,'roles':{'background':[],'output':[1,2,3],'control':[]},'mode':'new','tasks':[{'base':None,'action':'request','request_spans':[1,2,3],'spans':[1,2,3],'purpose':'data','subject_scope':'none','set':{'operation':'search','target':'points','result_goal':__import__('result_goal').default_goal('search')},'filters':[{'action':'add','ids':[],'spans':[1,2,3],'conditions':[condition('value','gt','5')]}],'unit':{'state':'none','value':''}}]}
         response=MagicMock();response.__enter__.return_value.read.return_value=json.dumps({'choices':[{'finish_reason':'stop','message':{'content':json.dumps({'business_request':request,'legacy':None})}}]}).encode()
         with mockpatch.dict(model.os.environ,{'DEEPSEEK_API_KEY':'synthetic','ICCM_REQUEST_ENGINE':'contract'}),mockpatch.object(model.urllib.request,'build_opener') as net:
             net.return_value.open.return_value=response
