@@ -1,0 +1,63 @@
+# 凭据和本机环境
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+secrets/
+
+# Python 缓存与虚拟环境
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.venv/
+venv/
+
+# Node 依赖和前端构建产物
+node_modules/
+.npm/
+.pnpm-store/
+coverage/
+dist/
+build/
+.next/
+.vite/
+
+# 编辑器与操作系统生成文件
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# 运行日志与临时文件
+*.log
+*.tmp
+*.pid
+logs/
+tmp/
+
+# 原始资料默认仅保留本机；变更外发范围前核对授权
+inputs/*
+!inputs/.gitkeep
+
+# 不提交生成的中间材料，保留目录标记
+docs/.staging/*
+!docs/.staging/.gitkeep
+
+# 本机项目覆盖配置
+PROJECT.local.yaml
+deployment/*.local.*
+
+# 各用户的本机项目凭据
+.local/
+
+# 按用户要求仅保留本机的文档
+/docs/macOS迁移记录.md
+/docs/交接说明.md

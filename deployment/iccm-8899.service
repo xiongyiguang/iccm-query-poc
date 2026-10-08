@@ -1,0 +1,21 @@
+[Unit]
+Description=iCCM query demo 8899
+After=network-online.target
+Wants=network-online.target
+[Service]
+User=iccm
+Group=iccm
+WorkingDirectory=/opt/iccm-8899/current/app
+EnvironmentFile=/etc/iccm-8899.env
+Environment=PYTHONDONTWRITEBYTECODE=1
+ExecStart=/usr/bin/python3 /opt/iccm-8899/current/app/backend/app.py --port 18765
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/iccm-8899
+UMask=0077
+[Install]
+WantedBy=multi-user.target

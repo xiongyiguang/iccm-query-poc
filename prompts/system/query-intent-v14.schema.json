@@ -1,0 +1,491 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "operation",
+    "entity",
+    "scope",
+    "clarification"
+  ],
+  "properties": {
+    "operation": {
+      "type": "string",
+      "enum": [
+        "object",
+        "equipment",
+        "equipment_class",
+        "parts",
+        "part_class",
+        "parent",
+        "measurements",
+        "alarms",
+        "measurement",
+        "threshold",
+        "duration",
+        "clarify",
+        "search",
+        "conversation",
+        "batch",
+        "analyze",
+        "attributes",
+        "data_overview"
+      ]
+    },
+    "entity": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "tree",
+            "code"
+          ],
+          "properties": {
+            "tree": {
+              "type": "string",
+              "enum": [
+                "pbs",
+                "config",
+                "equipment_class",
+                "part_class"
+              ]
+            },
+            "code": {
+              "type": "string"
+            }
+          }
+        }
+      ]
+    },
+    "scope": {
+      "type": "string",
+      "enum": [
+        "direct",
+        "all"
+      ]
+    },
+    "clarification": {
+      "type": "string"
+    },
+    "query": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "target",
+            "filters"
+          ],
+          "properties": {
+            "target": {
+              "type": "string",
+              "enum": [
+                "parts",
+                "equipment",
+                "config",
+                "pbs",
+                "equipment_class",
+                "part_class",
+                "points"
+              ]
+            },
+            "filters": {
+              "type": "array",
+              "maxItems": 8,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "field",
+                  "operator",
+                  "value"
+                ],
+                "properties": {
+                  "field": {
+                    "type": "string"
+                  },
+                  "operator": {
+                    "type": "string",
+                    "enum": [
+                      "contains",
+                      "equals",
+                      "starts_with",
+                      "not_contains",
+                      "is_blank",
+                      "not_blank"
+                    ]
+                  },
+                  "value": {
+                    "type": "string",
+                    "maxLength": 300
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "message": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "string",
+          "maxLength": 1200
+        }
+      ]
+    },
+    "tasks": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 4,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "question",
+          "intent"
+        ],
+        "properties": {
+          "question": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "intent": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "operation",
+              "entity",
+              "scope",
+              "clarification"
+            ],
+            "properties": {
+              "operation": {
+                "type": "string",
+                "enum": [
+                  "object",
+                  "equipment",
+                  "equipment_class",
+                  "parts",
+                  "part_class",
+                  "parent",
+                  "measurements",
+                  "alarms",
+                  "measurement",
+                  "threshold",
+                  "duration",
+                  "clarify",
+                  "search",
+                  "conversation",
+                  "analyze",
+                  "attributes",
+                  "data_overview"
+                ]
+              },
+              "entity": {
+                "anyOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "tree",
+                      "code"
+                    ],
+                    "properties": {
+                      "tree": {
+                        "type": "string",
+                        "enum": [
+                          "pbs",
+                          "config",
+                          "equipment_class",
+                          "part_class"
+                        ]
+                      },
+                      "code": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                ]
+              },
+              "scope": {
+                "type": "string",
+                "enum": [
+                  "direct",
+                  "all"
+                ]
+              },
+              "clarification": {
+                "type": "string"
+              },
+              "query": {
+                "anyOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "target",
+                      "filters"
+                    ],
+                    "properties": {
+                      "target": {
+                        "type": "string",
+                        "enum": [
+                          "parts",
+                          "equipment",
+                          "config",
+                          "pbs",
+                          "equipment_class",
+                          "part_class",
+                          "points"
+                        ]
+                      },
+                      "filters": {
+                        "type": "array",
+                        "maxItems": 8,
+                        "items": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "field",
+                            "operator",
+                            "value"
+                          ],
+                          "properties": {
+                            "field": {
+                              "type": "string"
+                            },
+                            "operator": {
+                              "type": "string",
+                              "enum": [
+                                "contains",
+                                "equals",
+                                "starts_with",
+                                "not_contains",
+                                "is_blank",
+                                "not_blank"
+                              ]
+                            },
+                            "value": {
+                              "type": "string",
+                              "maxLength": 300
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                ]
+              },
+              "message": {
+                "type": "string",
+                "maxLength": 1200
+              },
+              "analysis": {
+                "type": "object",
+                "required": [
+                  "kind",
+                  "group_by",
+                  "order",
+                  "limit",
+                  "numerator"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "kind": {
+                    "enum": [
+                      "group_count",
+                      "ratio"
+                    ]
+                  },
+                  "group_by": {
+                    "enum": [
+                      "class_code",
+                      "location",
+                      "status",
+                      "switch",
+                      "source",
+                      null
+                    ]
+                  },
+                  "order": {
+                    "enum": [
+                      "desc",
+                      "asc"
+                    ]
+                  },
+                  "limit": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 100
+                  },
+                  "numerator": {
+                    "type": "array"
+                  }
+                }
+              },
+              "properties": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "minItems": 1,
+                "maxItems": 12,
+                "uniqueItems": true
+              },
+              "navigate": {
+                "type": "boolean",
+                "description": "父关系：false只读取不移动；true明确导航到父对象。仅parent允许。"
+              }
+            }
+          }
+        }
+      }
+    },
+    "analysis": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "required": [
+            "kind",
+            "group_by",
+            "order",
+            "limit",
+            "numerator"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "enum": [
+                "group_count",
+                "ratio"
+              ]
+            },
+            "group_by": {
+              "enum": [
+                "class_code",
+                "location",
+                "status",
+                "switch",
+                "source",
+                null
+              ]
+            },
+            "order": {
+              "enum": [
+                "desc",
+                "asc"
+              ]
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            },
+            "numerator": {
+              "type": "array"
+            }
+          }
+        }
+      ]
+    },
+    "properties": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "maxItems": 12,
+          "uniqueItems": true
+        }
+      ]
+    },
+    "navigate": {
+      "type": "boolean",
+      "description": "父关系：false只读取不移动；true明确导航到父对象。仅parent允许。"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "operation": {
+            "const": "batch"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "tasks"
+        ],
+        "properties": {
+          "entity": {
+            "type": "null"
+          },
+          "scope": {
+            "const": "direct"
+          },
+          "clarification": {
+            "const": ""
+          },
+          "query": {
+            "type": "null"
+          },
+          "analysis": {
+            "type": "null"
+          },
+          "properties": {
+            "type": "null"
+          },
+          "message": {
+            "type": "null"
+          }
+        }
+      },
+      "else": {
+        "not": {
+          "required": [
+            "tasks"
+          ]
+        }
+      }
+    },
+    {
+      "if": {
+        "required": [
+          "navigate"
+        ]
+      },
+      "then": {
+        "properties": {
+          "operation": {
+            "const": "parent"
+          }
+        }
+      }
+    }
+  ]
+}

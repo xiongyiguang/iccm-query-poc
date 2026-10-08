@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "records": [
+    {
+      "gate": "startup_scope_confirmed",
+      "status": "已确认",
+      "confirmed_by": "用户（本任务明确要求继续下一步）",
+      "confirmed_at": "2026-09-14",
+      "confirmation_ref": "本任务：用户在详细设计完成后发送‘继续下一步’；覆盖原型和最小链路，不包含发布或模型验收",
+      "evidence_path": "docs/00-项目治理/轻量项目执行简表.md"
+    },
+    {
+      "gate": "architecture_confirmed",
+      "status": "已确认",
+      "confirmed_by": "用户（诊断及重构建议后明确要求开始重构）",
+      "confirmed_at": "2026-09-23",
+      "confirmation_ref": "本会话：用户开始重构；确认实施范围和工程方案，不代表客户验收通过",
+      "evidence_path": "docs/06-测试与验收/团队第二轮测试架构诊断-20260923.md"
+    },
+    {
+      "gate": "ai_boundary_confirmed",
+      "status": "已确认",
+      "confirmed_by": "用户（诊断及重构建议后明确要求开始重构）",
+      "confirmed_at": "2026-09-23",
+      "confirmation_ref": "本会话：用户开始重构；确认实施范围和工程方案，不代表客户验收通过",
+      "evidence_path": "docs/06-测试与验收/团队第二轮测试架构诊断-20260923.md"
+    },
+    {
+      "gate": "interaction_baseline_confirmed",
+      "status": "已确认",
+      "confirmed_by": "用户",
+      "confirmed_at": "2026-09-24",
+      "confirmation_ref": "本会话明确：复杂查询先展示理解出的对象和条件，用户可修改、确认后再执行——确认可接受；不代表实现已验收",
+      "evidence_path": "docs/03-架构设计/前端交互与组件基线.md"
+    },
+    {
+      "gate": "regression_boundary_confirmed",
+      "status": "已确认",
+      "confirmed_by": "用户（诊断及重构建议后明确要求开始重构）",
+      "confirmed_at": "2026-09-23",
+      "confirmation_ref": "本会话：用户开始重构；确认实施范围和工程方案，不代表客户验收通过",
+      "evidence_path": "docs/06-测试与验收/团队第二轮测试架构诊断-20260923.md"
+    }
+  ]
+}

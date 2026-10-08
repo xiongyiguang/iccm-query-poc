@@ -1,0 +1,99 @@
+schema_version: 3
+
+template:
+  name: "项目工程母版_Codex协同开发版"
+  version: "2.8.0"
+  is_template: false
+
+project:
+  name: "iCCM设备管理平台智能问数POC"
+  slug: "iccm-query-poc"
+  type: "客户POC技术原型"
+  shape: "本机与腾讯云演示Web智能问数助手"
+  delivery_goal: "普通版r11与本机Agent V4源码交接；完整中文文档和注释，供数据开发团队评审"
+  stage: "08-工程交接评审（第三轮缺陷暂停，非正式验收）"
+  owner: "用户负责业务确认，Codex负责设计实现"
+  created_at: "2026-09-14"
+  updated_at: "2026-10-08"
+
+scope:
+  data_classification: "客户脱敏POC数据，只读引用"
+  deployment_target: "本机回环及腾讯云106.53.130.181:8899密码保护演示，非生产"
+  source_input_location: "../中广核iCCM项目智能问数DEMO脱敏数据/，来源见启动简表"
+
+applicability:
+  frontend: "适用"
+  backend: "适用"
+  ai: "适用"
+  semantic_extraction: "不适用"
+  rag: "不适用"
+  # 仅 agent_demo 本机隔离演示；普通版不启用，见本机Codex智能体演示.md
+  agent: "适用"
+  intelligent_audit: "不适用"
+
+ui:
+  # general-ui / enterprise-web；仅前端实际适用时选择
+  profile: "general-ui"
+
+execution:
+  profile: "标准"
+  rationale: "客户本机POC采用标准档；当前设计不涉及生产控制迁移"
+  high_risk: "否"
+  evidence_registry: "docs/00-项目治理/门禁证据.json"
+
+governance:
+  startup_scope_confirmed: true
+  execution_profile_confirmed: false
+  risk_review_confirmed: false
+  independent_review_confirmed: false
+  rollback_validated: false
+  product_strategy_confirmed: false
+  requirements_confirmed: false
+  business_design_confirmed: false
+  architecture_confirmed: true
+  data_design_confirmed: false
+  reuse_assessment_confirmed: false
+  ai_boundary_confirmed: true
+  semantic_extraction_design_confirmed: false
+  acceptance_criteria_confirmed: false
+  acceptance_scenarios_confirmed: false
+  regression_boundary_confirmed: true
+  vertical_slice_defined: false
+  interaction_baseline_confirmed: true
+  test_plan_confirmed: false
+  release_authorized: false
+
+template_changelog:
+  - version: "2.8.0"
+    date: "2026-09-13"
+    summary: "区分母版与业务入口，按影响加载和验证；统一规则唯一源、缺陷分级、UI profile、可选模块与子级规则契约"
+  - version: "2.7.0"
+    date: "2026-09-07"
+    summary: "首次开发只确认最小闭环，日常迭代只校验变更影响，正式发布执行完整门禁；新增Startup与Iteration检查入口"
+  - version: "2.6.0"
+    date: "2026-09-07"
+    summary: "新增轻量、标准、严格执行分级、合并维护、风险升级与确认边界；门禁证据登记和状态校验；分级回归脚本"
+  - version: "2.5.0"
+    date: "2026-09-03"
+    summary: "沉淀企业工作台UI开发基线：可复用蓝灰配色、中文字体与字号、紧凑空间策略、表格和分栏契约、响应式与无障碍、真实浏览器验收及样式覆盖层等失败模式"
+  - version: "2.4.0"
+    date: "2026-09-02"
+    summary: "新增非结构化材料语义抽取与模型输出治理强制规范，将开放版式、语义抽取、宽容输出接入、证据校验、状态区分、异构评测和脱敏诊断纳入AI项目门禁"
+  - version: "2.3.0"
+    date: "2026-08-28"
+    summary: "新增系统性问题解决强制方法论，将六问分析、不变量、共同失效机制、最低公共层修复、问题空间矩阵和完整链路验证纳入缺陷关闭标准"
+  - version: "2.2.0"
+    date: "2026-08-27"
+    summary: "新增开源、商业和内部现成方案调研与复用评估门禁，要求关键能力先调研再决定采用、封装、采购或自研"
+  - version: "2.1.1"
+    date: "2026-08-27"
+    summary: "纠正母版定位：通用核心不绑定审核或平台业务，项目形态改为开放描述，AI与业务专项均按适用性启用"
+  - version: "2.1.0"
+    date: "2026-08-27"
+    summary: "补充项目形态判断、平台型研发策略、纵向闭环、双场景验收、状态失效重算、UI基线、运行版本基线和通用抽取原则"
+  - version: "2.0.0"
+    date: "2026-08-16"
+    summary: "统一规范、阶段门禁、文档索引、可选模块、初始化与完整性检查"
+
+
+

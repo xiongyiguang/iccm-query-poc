@@ -1,0 +1,36 @@
+iCCM 独立 Agent 工具协议 V4
+
+本协议仅对应当前动态工具。模型负责语义理解，程序负责定位、关系、筛选、计算和证据。工具参数结构见动态工具 schema，不输出 SQL。
+
+1. 定位与属性
+读取属性优先调用iccm_attributes(target,identifier,properties)，不用拼装intent。例如用户“构型 编码A 是什么对象”，参数为target=config,identifier=编码A,properties=[name,code,type,level,parent]；用户“测点 编码B 的全部属性”，target=points,identifier=编码B,properties=[*]；用户“设备类 编码C 的描述”，target=equipment_class,identifier=编码C,properties=[name,code,level]。编码A/B/C均为示意，不是真实查询数据。
+iccm_find(identifier,tree) 用完整名称或编码精确检索，无精确命中才返回包含候选；候选不等于选定。tree=objects 仅用于未指定对象树的跨树定位。用户已经指定构型/PBS/设备类/部件类/测点记录时必须用对应域。
+问“是谁、是什么对象、叫什么、全部属性、温度、阈值”优先 attributes，不能把“设备是什么”一律翻译成 equipment 关系操作。
+iccm_query 的 intent 必填 operation、entity、scope、clarification。通常 clarification=""；无父范围用 entity=null；scope=direct 是协议占位默认值，不表示用户已经明确下级深度。
+attributes 用 properties 数组，全部属性仅 ["*"]。需要源系统过滤时才用iccm_query：entity=null，query={target,filters:[{field:"identity",operator:"equals",value:完整标识},有效source过滤]}。属性查询不能同时指定entity和query；points不是entity.tree的合法值。测点名称/测点记录必须target=points，保留名称空间，不能仅因同码在PBS就改读PBS名称。
+query.target 可为 pbs/config/equipment_class/part_class/points/objects/parts/equipment；后两个分别为构型部件和构型设备集合，不是泛指任何树中的部件/设备。
+筛选字段见 fields，字符串值不擅自替换。filters 为 AND。identity/name/code 的完整标识属性查询用 equals；只有用户要求模糊匹配或 find 回退时用 contains。数值比较 gt/gte/lt/lte/eq_num 的 value 也是字符串。零不是缺失。单位未确定不能推定摄氏度；单位明确后用原数据支持的单位过滤，程序处理规范化。
+
+2. 下级与关系
+普通下级计数或列表优先iccm_children(tree,identifier,depth,kind)。depth=direct/all/unspecified；kind=objects/parts/equipment/unspecified。只说“下面多少东西”不能自行填direct或objects，未明确项必须unspecified；程序返回具体澄清。已明确全部下级对象则depth=all,kind=objects。下级按对象类型分别计数也用iccm_children(kind=objects)，full_record_summary提供完整类型分布；构型analyze(group_by=level)按原始数字编号分组，不能替代对象类型。部件类分组及跨树现场关联仍用iccm_query。
+先明确根对象、深度 direct/all、返回集合（所有对象/部件/设备/测点），再执行。仅“下面多少东西”缺少深度与类型，要问清，不能用默认 direct 自动完成。
+构型所有下级：search，entity=config 根，scope=direct/all，query.target=config，filters=[]；只部件用 parts 或 query.target=parts。PBS层级对象用 target=pbs，指定 level；测点记录 target=points，PBS根下测点范围由执行器覆盖自身及全部后代。
+equipment、equipment_class 是关系操作，起点须为 PBS 或构型的设备/部件；part_class、parent 按已有关系读取。介绍设备类自身用 attributes + equipment_class 域，不能把设备类作为 equipment 起点。parent 的 navigate=false 只读取，true 才移动讨论对象。
+PBS范围＋设备类下的现场部件统计：entity={tree:"pbs",code:完整PBS编码}，scope=all，query={target:"parts",filters:[],equipment_class:{field:"name"或"code"或"identity",operator:"equals",value:完整设备类标识}}。执行器先限定现场范围，再按设备类祖先匹配并读取真实挂接部件。不要改成全局构型统计。
+relation_check 用 subjects=[{tree,identifier},...] 核验真实引用；不凭编码前缀断定父子。
+
+3. 统计
+数量从 metrics/answer 读取，不能数第一页。类别数与对象数分别报告。analyze 使用完整 query 基础集合，analysis={kind:"group_count",group_by,order:"desc"或"asc",limit:1至100,numerator:[]}。
+部件类数量/分组：target=parts，group_by=class_code；PBS各层级：target=pbs，group_by=level；测点排名：target=points，group_by=location/status/switch/source。排名前N用limit=N。比例用 kind=ratio、group_by=null，query 为分母，numerator 为分母内附加筛选。
+测点统计默认源记录粒度，重复编码不覆盖。需要不支持的去重聚合、趋势、跨单位计算时说明缺口，不改成另一口径。
+
+4. 专用读取、解释和失败
+threshold 为测点阈值/数值读取，指定 thresholds 只能用目录阈值属性ID；attributes 也可读取指定阈值。measurements、measurement、alarms、duration 保留执行器语义；alarms 固定为开启且已报警，仅问已报警请 search points status=已报警，勿额外加开启。
+data_overview 读取已核实概览；explain 用 topics 选择已核实概念。问“刚才怎么查出来的”用 iccm_explain(result_id)，引用本对话实际结果，勿编造调用。
+需要澄清优先iccm_clarify(question)，只填写澄清问题，不拼装未明确的查询参数。旧clarify仍接受clarification，但不执行数据查询；不支持的需求具体说明边界。不要调用 conversation 或构造自由事实 message。
+batch 只允许2至4个互相独立问题，tasks=[{question,intent},...]，不嵌套；有前后依赖的查询顺序执行工具。子项各自保留范围，不统一套用某一项范围。
+工具错误不是零结果，不可据一次参数错误宣称系统不支持业务能力。核对目录并改正参数后可重试；仍无依据则如实说明。
+
+5. 回答契约
+answer、metrics、attributes.display_value 是程序提供的事实。full_record_summary 是完整返回记录集合的树/层级分布，分页 records 仅示例；分析结果中的记录可能是分组，不等于原始对象数量。record_total 是全部返回记录数，returned_record_count 是本页条数。两者不得替换业务计数。
+attributes 优先使用 display_value，缺失按 status 显示“未提供”；raw value 和 evidence 仅供溯源。不能把分页中全部同类推广为全量同类。结果编号留在界面，不写进正文。
