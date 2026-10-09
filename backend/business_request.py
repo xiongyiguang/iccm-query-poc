@@ -500,6 +500,9 @@ def apply_delta(delta, previous, question, reference_context=None):
 
 def commit_state(context, trace, result, previous=None):
     """成功回执和未完成草稿分开提交；只完成本轮实际交付的任务。"""
+    if (trace or {}).get('engine')=='relational_request':
+        if result.get('relational_state'):context['relational_state']=copy.deepcopy(result['relational_state'])
+        return context
     trace=trace or {};state=trace.get('business_request_state')
     success=result.get('status')=='ok' or (result.get('status')=='batch' and all(i.get('status')=='ok' for i in result.get('items',[])))
     pending=[]

@@ -206,7 +206,7 @@ def extract(question,previous,thinking='disabled',model=None,effort=None,store=N
     from model import NoRedirect,ENDPOINT,MODEL
     from attributes import CATALOG
     from query_filters import POINT_FIELDS,POINT_RAW_FIELDS,OBJECT_FIELDS,OPERATORS
-    prompt=(ROOT/'prompts/system/request-checklist-v25.txt').read_text(encoding='utf-8')
+    prompt=(ROOT/'prompts/system/request-checklist-v26.txt').read_text(encoding='utf-8')
     catalog=verified_schema['business_catalog'] if verified_schema else business_catalog(store)
     payload={'question':question,'segments':source_segments(question),'prior':prior_view(previous)}
     if reference_context:payload['reference_context']=reference_context

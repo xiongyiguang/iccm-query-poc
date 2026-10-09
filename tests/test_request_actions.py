@@ -28,6 +28,11 @@ class RequestActionTests(unittest.TestCase):
     def setUpClass(cls):cls.store=Store()
     @classmethod
     def tearDownClass(cls):cls.store.db.close()
+    def setUp(self):
+        # 本组验证原单表动作协议，新增关系入口返回不适用；
+        # 原候选、独立清单、失败与次数断言全部保留。
+        route=patch('relational_planner.interpret',return_value=None)
+        route.start();self.addCleanup(route.stop)
     def old(self):
         a=request();b=copy.deepcopy(a);b['filters'][0]['conditions'][0]['value']='测量点名称62';b['spans']=[1,2]
         q='已知测量点名称61和测量点名称62。请读取它们的测量值。两项都查询。'

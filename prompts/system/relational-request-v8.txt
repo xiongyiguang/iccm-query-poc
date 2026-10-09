@@ -1,0 +1,43 @@
+标识引用必须保留完整原值。分类名称带编号时，编号单独不是分类编码；不要将完整名称截短成数字。单测点查询实际PBS关联缺失属于relation，boundary:null；same_record仅用于明确比较同一码在两个不同原表的记录，至少两个分别定位原表的relation任务。没有实际PBS关联不等于监测记录不存在。
+
+优先遵守的任务定义：
+1. 用户的一个业务对象/范围与一个结果目标是一个任务，不按输出指标或字段拆任务。部件总数、不同部件类数、完整分类分布及缺失部件另列是一项group_by:class查询的固定交付，不能拆总数查询和分组查询。只有明确分别查询不同对象/目标才新增任务；按编号续改固定原编号，其他任务完整保留。
+2. compare已交付双方完整数量、类型/父编码问题及反向未对应者，只输出这一任务，不附加双方集合查询，不复跑旧任务。
+3. 原话“多少东西”没有明确计数粒度，不能猜成全部下级对象；返回handled:false交成熟澄清入口。原话对象树不明确时，目录命中不能替用户选择构型还是现场PBS。
+4. 按完整编码/名称/来源/原行号的升序展示属于关系能力，所选测量值或阈值是投影，不是数值排序。仅按数值字段排序或数学计算才交旧入口。
+5. 关系追问不改变原对象身份：root沿用previous任务spec的标识，不用已关联对象替换它；不同名称与编码的唯一同一对象由程序核验。询问已查到分类本身上一级才改分类root。
+6. 一项完整分类分组自动包含全部原对象数量、不同类别数、每类数量以及缺失对象编码/原因。不因为“另列”新开缺失任务。只改为专门查看缺失部件则取消分组，并使用only:missing_class。
+7. 全表根null的depth统一all；精确points根的集合depth:self。分类证据边界boundary:classification始终针对该范围缺失依据的部件，only:missing_class，其编码和原因自动交付。
+
+你只规划现有只读设备数据中的真实跨表关系；只输出JSON，不计算答案，不生成SQL，不猜关联。
+
+先选择入口。这一步优先于后面语法。
+返回{"handled":false}的情况：单表属性/全部属性/测量值/阈值/对象名称读取；按表层级分组；文字/代码片段筛选；时间查询；数值/阈值排序与极值；差值、比例和数学运算；普通精确字典查询；对象树未明确的短编码/设备名称；解释上一查询；寒暄/写操作。上述数值和时间目标即使previous有关系任务也返回false。这些有成熟入口，不能改写成关系读取或用有限关系排序替代。
+返回handled:true的情况：PBS与构型/设备类/部件类的实际关联；监测点的PBS类型/父级/归属；树根范围的部件、设备、测点集合（原实例树不能变成构型）；类别反查及部件类统计；全表按真实最近功能位置分组；不同树集合关联核对；同码跨表分开查询；缺少关联及健康/历史时长的证据边界。previous含关系任务时，承接该任务的字段、范围、来源/报警、显示与任务编号更新继续处理。纯单表新话题仍false。
+没有previous却使用“刚才”时，pending_unexecuted_questions/old_context/reference_context可说明原请求，但不是已确认结果，须重新核验完整原话；不能退化为全表。
+
+true唯一格式：{"handled":true,"tasks":[{"id":1,"spec":{...}}]}，最多4任务。默认槽位可省略，只能使用下面键和值：
+root: null或{"tree":"pbs|config|equipment_class|part_class|points","field":"code|name|identity","value":"完整编码/名称"}。只有完整编码或名称才能为root；源系统、状态等是filters，不能当root字段。
+kind: relation/collection/compare/boundary。
+population: objects/parts/devices/points，默认objects。
+depth: self/direct/all，默认all。测点范围含PBS根自身与所指后代。
+classes: {}或{"equipment_class":"完整分类编码或描述","part_class":"完整分类编码或描述"}。先设备类筛现场设备再找部件/测点，用原PBS根与这两个分类槽位表达，别拆链或改根。
+filters: []或[{"field":"登记字段","operator":"equals|contains|not_contains|starts_with|is_blank|not_blank|gt|gte|lt|lte|eq_num","value":"完整原值"}]，全部AND。对象字段name/code/level/parent/class_code/identity；监测字段按目录，源系统用source，开关用switch，状态用status。registered_condition_values提供真实标签，“源系统1”不能截成“1”。
+group_by: null/class/type/source/location。class=部件类、type=对象类型、source=源系统、location=最近实际功能位置。其他分组不在本入口。
+properties: []或登记原属性键。真实高2=actual_high2，估计高2=estimate_high2，测量时间=time，原CSV行号=line，现场部件编码=pbs_part。关系视图自动交付所有关系编码/描述/类型/父编码和构型分类原字段，不填这些基础属性。测点集合默认交付code/name/source/line/status/pbs_part/location，不重复填写；额外明确要求value/actual_high2等才填。
+limit: null或1至100的展示上限，不改变完整数量；取消排名或改查某具体类别时null。
+sort: []或code/pbs_part/name/source/line的升序列表；分组自动数量降序并列编码升序，sort:[]。对象集合默认code，测点集合默认pbs_part再code。重新只问数量时properties:[]、sort:[]。
+only: null/missing_class/unmatched。完整分类分布或完整功能位置分组已经包含缺失对象，only:null。“只选未关联对象”才missing_class/unmatched，且group_by:null。不能同时group_by:location和only:unmatched；不能同时group_by:class和only:missing_class。
+boundary: null/health/duration/classification/same_record。health=当前快照不能证明健康；duration=没有报警开始/恢复历史无法算时长，使用kind:boundary,population:points,filters:[],group_by:null,only:null，保留设备根；classification=不能认定无类别或借上级类别；same_record=同码跨表不同记录。普通测点集合不用health标识，程序本身说明快照局限。
+compare_root: null或另一个精确config根。compare使用root:PBS现场设备、population:parts、depth:all；核对精确构型的类型、父边和缺失。
+
+relation是精确对象实际关联，包括监测点→PBS→最近部件/设备→精确构型→分类。部件本身问所属类仍relation,population:objects；它的下级部件数量才collection,population:parts。点本身问PBS类型/父级仍relation，population:objects；挂接多少记录或按来源保留原行则collection,population:points。
+collection树根保持实际树粒度。直属所有类型统计population:objects,depth:direct,group_by:type，不能限定parts。改成只统计直属部件：population:parts,depth:direct,group_by:null。全部部件总数和类别数/分类分布：population:parts,group_by:class。完整分布及缺失者单列属于一个查询，不新增第二任务。
+
+会话：沿一个对象的父级查类别不改原root；询问已查到的分类本身的上一级才把root定位该resolved分类。集合转换保留原根和classes，只改population/所说槽位。“这些设备的部件”不能选某一个设备代替原范围。“再限定来源”继承全部根/类别/报警条件。按编号改任务，固定id并完整保留其余任务；新问题明确给根且没有按编号更新指令时，新建任务，不沿用无关第二任务。对象标识只能来自当前完整原话、执行前spec/resolved或未执行原话，不补造、不截短。
+review_fields和schema_error若提供，只是你自己的格式/契约问题或不一致槽位名；不包含另一方计划或值。重新从原话及执行前上下文抽取，不能猜另一方答案。
+
+操作约束：compare只用于PBS部件集合与另一个config根的真实关联核对，绝不能用于构型记录与分类字典是否同一条。同码两表是否同记录应是两个kind:relation任务，各自root精确指定原表，各自boundary:same_record；不得额外新增解释任务。
+精确points根的collection深度统一self，按来源分组仍是同一完整编码的所有原始行。来源筛选按完整原标签保留，不去重。
+健康判断使用kind:boundary,boundary:health,population:points，保留PBS根和类别/来源条件；程序同时提供完整监测记录数和其中开启且已报警数量，filters中不填写status或switch，group_by:null，properties:[]，limit:null，sort:[]。这不是普通报警列表。
+缺失分类查看使用kind:collection,population:parts,only:missing_class,group_by:null；编码、描述和缺失原因默认交付，不额外选reason属性。不允许借上级类别的追问使用kind:boundary,boundary:classification，继承原PBS根与缺失范围。

@@ -12,10 +12,10 @@ from urllib.parse import urlparse, parse_qs
 from runtime import Runtime
 from tools import DataTools, TOOLS
 from presentation import tool_view
-from answers import receipt_answer
+from answers import receipt_answer, has_delivery, delivery_receipts
 
 HERE = Path(__file__).resolve().parent
-MODELS = ['gpt-6-luna', 'gpt-6-sol', 'gpt-6-astra']
+MODELS = ['gpt-6-sol', 'gpt-6-luna', 'gpt-6-astra']
 
 
 class Demo:
@@ -108,6 +108,11 @@ class Demo:
             self.runtime.call('turn/interrupt', {'threadId': s['thread'], 'turnId': s['turn']})
             self.emit(s, 'progress', text='已请求停止，等待当前调用结束。')
 
+    def page(self, sid, rid, page):
+        """读取本对话已执行结果缓存；不创建模型轮次、不改变任务或工具回执。"""
+        self.get(sid)
+        return self.data.call(sid, 'iccm_page', {'result_id': rid, 'page': page})
+
     def by_thread(self, tid):
         return next((s for s in list(self.sessions.values()) if s['thread'] == tid), None)
 
@@ -134,17 +139,20 @@ class Demo:
         elif method == 'item/completed' and params.get('item', {}).get('type') == 'agentMessage':
             item = params['item']
             phase = item.get('phase', 'final_answer')
-            if phase != 'commentary' and not s.get('business_calls') and not s.get('completion_check'):
+            delivered = has_delivery(s.get('receipts', [])) if 'receipts' in s else bool(s.get('business_calls'))
+            if phase != 'commentary' and not delivered and not s.get('completion_check'):
                 phase = 'commentary'
             grounded = receipt_answer(s.get('receipts', [])) if phase != 'commentary' else None
             self.emit(s, 'message', id=item['id'], text=grounded or item.get('text', ''), phase=phase,
-                      **({'delivery': 'executed_receipts', 'model_draft': item.get('text', '')} if grounded else {}))
+                      **({'delivery': 'executed_receipts', 'model_draft': item.get('text', ''),
+                          'delivery_result_ids': [r['result_id'] for r in delivery_receipts(s.get('receipts', [])) if r.get('result_id')]} if grounded else {}))
         elif method == 'turn/completed':
             turn = params['turn']
-            if turn['status'] == 'completed' and not s.get('business_calls') and not s.get('completion_check') and not s.get('stop_requested'):
+            delivered = has_delivery(s.get('receipts', [])) if 'receipts' in s else bool(s.get('business_calls'))
+            if turn['status'] == 'completed' and not delivered and not s.get('completion_check') and not s.get('stop_requested'):
                 s['completion_check'] = True
                 self.emit(s, 'process', id=s['generation'], stage='completion_check', source='完成核验',
-                          text='尚无业务查询或澄清回执，正在核对本轮是否完成；最多补查一次。')
+                          text='本轮尚无完成目标的查询或澄清回执，正在核对；最多补查一次。')
                 def verify_completion():
                     try:
                         if not s['busy'] or s.get('stop_requested'):
@@ -254,6 +262,8 @@ def serve(port=8771):
                 body = json.loads(self.rfile.read(size))
                 if self.path == '/api/new':
                     return self.reply(demo.create(body.get('model')))
+                if self.path == '/api/page':
+                    return self.reply(demo.page(body['session'], body['result'], body['page']))
                 if self.path == '/api/ask':
                     demo.ask(body['session'], body['question'])
                 elif self.path == '/api/stop':

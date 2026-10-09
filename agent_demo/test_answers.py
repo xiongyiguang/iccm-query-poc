@@ -1,6 +1,6 @@
 import threading
 import unittest
-from answers import receipt_answer
+from answers import receipt_answer, delivery_receipts
 from tools import DataTools
 from server import Demo
 
@@ -46,6 +46,27 @@ class ReceiptAnswers(unittest.TestCase):
         text=receipt_answer([('iccm_find',{'status':'ok','answer':'找到对象'}),
                              ('iccm_query',{'status':'clarify','answer':'请选择直接或全部下级'})])
         self.assertEqual(text,'请选择直接或全部下级')
+
+    def test_repeated_collection_query_delivers_latest_cache_once(self):
+        args={'tree':'config','identifier':'MOHB01','depth':'direct','kind':'parts'}
+        first=self.data.call('answer-repeat','iccm_children',args)
+        last=self.data.call('answer-repeat','iccm_children',args)
+        self.assertNotEqual(first['result_id'],last['result_id'])
+        chosen=delivery_receipts([('iccm_children',first),('iccm_children',last)])
+        self.assertEqual([r['result_id'] for r in chosen],[last['result_id']])
+        full=self.data.results['answer-repeat',chosen[0]['result_id']]
+        self.assertEqual(len(full['records']),51)
+
+    def test_same_subject_different_projection_is_not_deduplicated(self):
+        first=self.data.call('answer-fields','iccm_attributes',{'target':'config','identifier':'MOHB01','properties':['name']})
+        last=self.data.call('answer-fields','iccm_attributes',{'target':'config','identifier':'MOHB01','properties':['parent']})
+        self.assertEqual(len(delivery_receipts([('iccm_attributes',first),('iccm_attributes',last)])),2)
+
+    def test_independent_task_identity_is_not_deduplicated(self):
+        common={'status':'ok','answer':'真实结果','records':[],'query':{'target':'points','filters':[]}}
+        first={**common,'result_id':'first','task_number':1}
+        last={**common,'result_id':'last','task_number':2}
+        self.assertEqual(len(delivery_receipts([('iccm_query',first),('iccm_query',last)])),2)
 
 
 if __name__=='__main__':unittest.main(verbosity=2)

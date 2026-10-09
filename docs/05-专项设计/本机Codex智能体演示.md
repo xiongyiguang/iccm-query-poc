@@ -176,3 +176,5 @@ Astra中等同题26.8秒（不同轮次）。这是一轮小样本观察，非�
 证据根：`docs/.staging/codex-agent-business-ui-20260927/`。首轮 `real-browser.json` 保留；最终轮 `run-2026-09-26T17-37-16-599Z/real-browser.json`（UTC时间目录对应北京时间2026-09-27）及同目录截图。`before/`保存本轮修改前的唯一源快照；`r10-preservation.json`确认backend/frontend/prompts/deployment/scripts共155个非缓存文件修改前后无差异。未提交Git或操作腾讯云。沙箱内启动曾受阻，随后在获准的本机运行环境启动成功，原失败日志保留于既有启动日志目录。
 
 登记补齐：PROJECT.yaml 的Agent注释移至独立行，配置含义不变；Agent工作流设计改为本文件的唯一源入口，旧模板快照保留。Iteration登记检查23项通过；该检查不替代上述真实模型、页面与业务验证。
+
+当前本机V12.1补齐显式澄清候选回执的entity=None/scope=direct，保留未选定对象和pending domain，不执行属性或计算。V12完整关联48/48、历史原断言107/117及原V3业务复核117/117保持原记录；追加原B03a-e五步真实5/5，最新135项离线通过。V12.1未重新跑全部165步，影响范围与证据单列，普通197文件和数据未改。 详细关闭边界以多表关联集中修复验证为准。

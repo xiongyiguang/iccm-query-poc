@@ -75,7 +75,8 @@ class KnowledgeContracts(unittest.TestCase):
         self.assertNotIn('explain_result', ops)
         self.assertIn('clarify', ops)
         guide = self.data.call('catalog', 'iccm_catalog', {})['query_protocol']
-        self.assertIn('独立 Agent 工具协议 V4', guide)
+        self.assertIn('独立 Agent 工具协议 V11', guide)
+        self.assertIn('iccm_relational', guide)
 
     def test_clarification_accepts_unresolved_draft_without_execution(self):
         result=self.data.call('clarify-draft','iccm_query',{'intent':{'operation':'clarify',

@@ -11,7 +11,13 @@ DOMAIN_LABELS = {'pbs': ('PBS',), 'config': ('构型', '构型树', '构型对�
 
 def bindings(question, references, previous):
     explicit = {}
-    for ref in references:
+    # 字面目录会按值去重；同一编码在本句的不同位置仍可能分别指定原表。
+    occurrences = [{**ref, 'start': m.start(), 'end': m.end()}
+                   for ref in references for m in re.finditer(re.escape(ref['value']), question)
+                   if ref['field'] != 'code' or not (
+                       m.start() and re.fullmatch(r'[A-Za-z0-9_&.#-]', question[m.start()-1]) or
+                       m.end() < len(question) and re.fullmatch(r'[A-Za-z0-9_&.#-]', question[m.end()]))]
+    for ref in occurrences:
         prefix = question[:ref['start']]
         for domain, labels in DOMAIN_LABELS.items():
             pattern = '(' + '|'.join(sorted(map(re.escape, labels), key=len, reverse=True)) + r')(?:的)?(?:对象)?(?:编码|代码)?\s*[“「"\x27]?\s*$'

@@ -1,18 +1,32 @@
-iCCM 独立 Agent 工具协议 V4
+iCCM 独立 Agent 工具协议 V11
 
 本协议仅对应当前动态工具。模型负责语义理解，程序负责定位、关系、筛选、计算和证据。工具参数结构见动态工具 schema，不输出 SQL。
 
+0. 有据任务与结果目标（直接查询的首选入口）
+iccm_request(request={mode,tasks})由Codex理解原话并声明增量，程序复用公共任务状态与结果执行器。直接数据筛选、计数、属性、排序、最早/最新/最大/最小、差值、多个独立任务及其续问，均优先使用此入口；不要通过find、第一页或模型口算替代。普通下级仍可用children；跨树现场部件与完整分类/来源/位置分组用iccm_relational；单表group_count/ratio仍用query。不是把每个问题都改成普通search。
+本轮提供task_state和previous_query。new表示新话题，每项base=null；update必须引用task_directory中实际t1/t2等编号。只修改用户本轮提到的字段或条件，未提到的自动保留；用户只改一个端点不能删另一端点、来源、单位、报警条件或此前已确认的计算口径。多个任务的编号不是工具调用顺序。用户仅改第一项而第二项不变时，只提交第一项，或第二项execute=false、set={}、filters=[]、subject=null；不重复执行待补分支。原样重查才execute=true。新话题不要继承旧主体或筛选；换任务类型/目标用replace_task=true，完整声明operation/target/properties，retain_filters列出明确沿用的旧条件编号。
+每项必须parent_range、execute（本轮实际查询true，仅保留另一项不变false）、base、quote（本轮用户逐字原文片段）、set、filters、subject。新单对象属性任务的完整标识放subject={field:identity/name/code,value:标识}；集合查询和update的subject=null。身份不是只写在quote里；subject会由程序转换为有来源的精确标识条件，不要在filters重复。set是修改项，如operation=search或attributes，target，properties；首次search的properties=[]，attributes须明确属性目录ID。无父范围scope=direct，仅协议占位，并不限制全局测点。新数据任务还必须purpose=data,subject_scope=none；身份核验用purpose=identity；介绍对象用introduction。介绍未给对象域时target=objects,subject_scope=unspecified，程序保留草稿并问所属域；明确PBS/构型/设备类/部件类时subject_scope=explicit；同一已确认对象续问可confirmed，不能把新名称继承旧域。对象域补答如PBS只update待补任务的target=pbs，purpose=introduction,subject_scope=explicit，subject=null，filters=[]，其他字段保留；不能new一个没有原对象的介绍，不能将历史原话当本轮quote。
+例：用户“测点完整编码CODE_A的测量值”可new任务quote=用户原句，subject={field:code,value:CODE_A}，set={operation:attributes,target:points,properties:[value],result_goal:七字段attributes目标}，filters=[]，purpose=data,subject_scope=none；CODE_A仅是示意。后续“仅名称”应update原任务，subject=null，set.properties=[name]，filters=[]，并沿用attributes目标。
+filters是条件增量，不是完整条件数组。每项action=add/replace/remove,ids=[真实旧条件ID],conditions=[{field,operator,value}],quote=本轮逐字原话。add的ids=[]；remove的conditions=[]；replace只引用需要修改的条件，不重新添加其余旧条件。数值value也是字符串。首次数值比较须unit={state:none/ambiguous/specified,value:明确单位或空串}。仅“度”应ambiguous，后续明确单位只更新单位并添加对应unit条件，其余目标不变；不能猜摄氏度。目录里存在测量点名称/构型对象描述等完整名称，字面字段简称可由程序核验展开，不凭编号改换对象域。
+每个新search/attributes或替换任务必须在set里完整声明result_goal七字段：kind,field,direction,limit,ties,operands,basis。未变更目标时update可省略，由程序保留；改变目标时完整七字段不能只填kind。records/count/attributes：field=null,direction=null,limit=null,ties=all,operands=[],basis=measurement。sort：field=value/time/thresholds,direction=asc/desc,limit=用户N或null，ties=all；排序前N的有效范围1至100，用户要求越界也须真实声明其N，由程序返回业务边界，不能自己截断或改成第一页。收到边界后，用户改N但尚无确认任务时按rejected_request重建new；失败提案不是执行凭据。extreme：field=value/time,direction=asc最小/最早或desc最大/最新,limit=null,ties=all，保留全部并列。按测量值大小、最新时间排序与按分组数量排名不同，不能用analyze(group_count)代替。
+测点按time或value排序/极值使用operation=search、properties=[]；阈值内部升降序使用operation=attributes、properties=目录中具体阈值属性ID数组、field=thresholds、kind=sort、limit=null。真实值报警阈值六项对应actual_low3/actual_low2/actual_low1/actual_high1/actual_high2/actual_high3；估计值用estimate_low1/low2/low3及estimate_high1/high2/high3；变化速率偏差用rate_deviation同目录字段。用户只问真实值族时properties只列该族六项，不能把其他族一同返回；问全部时列出目录的18个具体阈值ID。thresholds仅是result_goal.field的值，不是properties中的属性ID。不要仅列原始记录宣称已排序。
+difference：operation=search,target=points,field=value,direction=null表示有向的第一项减第二项，absolute表示绝对差，limit=null,ties=all,operands按原文顺序声明两个{name/code/identity的field,value}。两对象放operands，不是互斥filters的AND。filters只放共用来源等条件。程序对两条独立读数核验；未明确纯数值口径时basis=measurement，缺物理量证据会澄清；用户同意“纯数字、原始数值”才改basis=raw_numbers，不能因为单位相同或缺失就擅自计算。纯数值跨单位排序同样需要raw_numbers；time不需要数值单位同意。
+日期time支持date_equals（整日YYYY-MM-DD或整月YYYY-MM）、date_gte及date_lt。整年使用date_gte=该年1月1日、date_lt=次年1月1日；整月/整日不要用原字符串equals，不要误将月份末日设为排他的月末零点；时间段应明确下界包含、上界排除。缺失时间、空筛选集合不能编造极值或差值；程序会报告不足并保留未完成任务。
+unsupported目标与records/count一样：field=null,direction=null,limit=null,operands=[],ties=all,basis=measurement；不能把尚未支持的计算字段混入普通目标参数。operation=unsupported的说明任务仅set={operation:unsupported,topics:[limits]}，filters=[]、subject=null；不要带purpose/subject_scope/unit，已有中性默认值仅作兼容，实际单位/标识不删除。topics必须来自静态目录，不能放问句，也不属于search。
+多个独立问题一次提交tasks，程序逐项执行；一项缺单位或缺数据时其他有效项仍交付，待补答只更新对应任务，不重做成功分支。未支持的平均值、趋势、故障根因等使用kind=unsupported（普通查询任务的目标）或operation=unsupported,set.topics=[limits]（能力说明任务），不执行替代查询。
+工具报协议错误先修正有据参数；不能为了通过错误把排序改为列表、删除条件、改单位或扩大范围。iccm_find只是定位准备，精确候选不表示完成用户的属性/计算目标。最后以goal_receipt及实际回执为依据回答；query_receipt/result_state中的状态是事实，模型草稿不是事实。
+
 1. 定位与属性
-读取属性优先调用iccm_attributes(target,identifier,properties)，不用拼装intent。例如用户“构型 编码A 是什么对象”，参数为target=config,identifier=编码A,properties=[name,code,type,level,parent]；用户“测点 编码B 的全部属性”，target=points,identifier=编码B,properties=[*]；用户“设备类 编码C 的描述”，target=equipment_class,identifier=编码C,properties=[name,code,level]。编码A/B/C均为示意，不是真实查询数据。
+单次兼容属性读取可调用iccm_attributes(target,identifier,properties)；连续任务优先iccm_request，不用拼装intent。例如用户“构型 编码A 是什么对象”，参数为target=config,identifier=编码A,properties=[name,code,type,level,parent]；用户“测点 编码B 的全部属性”，target=points,identifier=编码B,properties=[*]；用户“设备类 编码C 的描述”，target=equipment_class,identifier=编码C,properties=[name,code,level]。编码A/B/C均为示意，不是真实查询数据。
 iccm_find(identifier,tree) 用完整名称或编码精确检索，无精确命中才返回包含候选；候选不等于选定。tree=objects 仅用于未指定对象树的跨树定位。用户已经指定构型/PBS/设备类/部件类/测点记录时必须用对应域。
-问“是谁、是什么对象、叫什么、全部属性、温度、阈值”优先 attributes，不能把“设备是什么”一律翻译成 equipment 关系操作。
+问“是谁、是什么对象、叫什么、全部属性、温度、阈值”使用attributes任务，不能把“设备是什么”一律翻译成 equipment 关系操作。
 iccm_query 的 intent 必填 operation、entity、scope、clarification。通常 clarification=""；无父范围用 entity=null；scope=direct 是协议占位默认值，不表示用户已经明确下级深度。
 attributes 用 properties 数组，全部属性仅 ["*"]。需要源系统过滤时才用iccm_query：entity=null，query={target,filters:[{field:"identity",operator:"equals",value:完整标识},有效source过滤]}。属性查询不能同时指定entity和query；points不是entity.tree的合法值。测点名称/测点记录必须target=points，保留名称空间，不能仅因同码在PBS就改读PBS名称。
 query.target 可为 pbs/config/equipment_class/part_class/points/objects/parts/equipment；后两个分别为构型部件和构型设备集合，不是泛指任何树中的部件/设备。
 筛选字段见 fields，字符串值不擅自替换。filters 为 AND。identity/name/code 的完整标识属性查询用 equals；只有用户要求模糊匹配或 find 回退时用 contains。数值比较 gt/gte/lt/lte/eq_num 的 value 也是字符串。零不是缺失。单位未确定不能推定摄氏度；单位明确后用原数据支持的单位过滤，程序处理规范化。
 
 2. 下级与关系
-普通下级计数或列表优先iccm_children(tree,identifier,depth,kind)。depth=direct/all/unspecified；kind=objects/parts/equipment/unspecified。只说“下面多少东西”不能自行填direct或objects，未明确项必须unspecified；程序返回具体澄清。已明确全部下级对象则depth=all,kind=objects。下级按对象类型分别计数也用iccm_children(kind=objects)，full_record_summary提供完整类型分布；构型analyze(group_by=level)按原始数字编号分组，不能替代对象类型。部件类分组及跨树现场关联仍用iccm_query。
+普通下级计数或列表优先iccm_children(tree,identifier,depth,kind)。depth=direct/all/unspecified；kind=objects/parts/equipment/unspecified。只说“下面多少东西”不能自行填direct或objects，未明确项必须unspecified；程序返回具体澄清。已明确全部下级对象则depth=all,kind=objects。下级按对象类型分别计数使用iccm_relational(kind=collection,population=objects,group_by=type)，交付全部类型的分组行；full_record_summary仅是普通下级列表的完整汇总；构型analyze(group_by=level)按原始数字编号分组，不能替代对象类型。部件类完整分组及跨树现场关联使用iccm_relational。
 先明确根对象、深度 direct/all、返回集合（所有对象/部件/设备/测点），再执行。仅“下面多少东西”缺少深度与类型，要问清，不能用默认 direct 自动完成。
 构型所有下级：search，entity=config 根，scope=direct/all，query.target=config，filters=[]；只部件用 parts 或 query.target=parts。PBS层级对象用 target=pbs，指定 level；测点记录 target=points，PBS根下测点范围由执行器覆盖自身及全部后代。
 equipment、equipment_class 是关系操作，起点须为 PBS 或构型的设备/部件；part_class、parent 按已有关系读取。介绍设备类自身用 attributes + equipment_class 域，不能把设备类作为 equipment 起点。parent 的 navigate=false 只读取，true 才移动讨论对象。
@@ -22,15 +36,49 @@ relation_check 用 subjects=[{tree,identifier},...] 核验真实引用；不凭�
 3. 统计
 数量从 metrics/answer 读取，不能数第一页。类别数与对象数分别报告。analyze 使用完整 query 基础集合，analysis={kind:"group_count",group_by,order:"desc"或"asc",limit:1至100,numerator:[]}。
 部件类数量/分组：target=parts，group_by=class_code；PBS各层级：target=pbs，group_by=level；测点排名：target=points，group_by=location/status/switch/source。排名前N用limit=N。比例用 kind=ratio、group_by=null，query 为分母，numerator 为分母内附加筛选。
-测点统计默认源记录粒度，重复编码不覆盖。需要不支持的去重聚合、趋势、跨单位计算时说明缺口，不改成另一口径。
+测点统计默认源记录粒度，重复编码不覆盖。测点原行/不同完整编码双计数及按来源分组使用iccm_relational；趋势和跨单位计算仍不能改变口径代替。
 
 4. 专用读取、解释和失败
 threshold 为测点阈值/数值读取，指定 thresholds 只能用目录阈值属性ID；attributes 也可读取指定阈值。measurements、measurement、alarms、duration 保留执行器语义；alarms 固定为开启且已报警，仅问已报警请 search points status=已报警，勿额外加开启。
 data_overview 读取已核实概览；explain 用 topics 选择已核实概念。问“刚才怎么查出来的”用 iccm_explain(result_id)，引用本对话实际结果，勿编造调用。
-需要澄清优先iccm_clarify(question)，只填写澄清问题，不拼装未明确的查询参数。旧clarify仍接受clarification，但不执行数据查询；不支持的需求具体说明边界。不要调用 conversation 或构造自由事实 message。
+可结构化的请求先用iccm_request保存完整任务；程序自行澄清缺项。iccm_clarify也必须带request业务草稿，保留用户标识、所问属性和目标；只有无法形成任何任务时request=null。只有无法声明任务时才用iccm_clarify(question)，否则后续补答会丢失尚未执行的目标。旧clarify仍接受clarification，但不执行数据查询；不支持的需求具体说明边界。不要调用 conversation 或构造自由事实 message。
 batch 只允许2至4个互相独立问题，tasks=[{question,intent},...]，不嵌套；有前后依赖的查询顺序执行工具。子项各自保留范围，不统一套用某一项范围。
 工具错误不是零结果，不可据一次参数错误宣称系统不支持业务能力。核对目录并改正参数后可重试；仍无依据则如实说明。
 
 5. 回答契约
 answer、metrics、attributes.display_value 是程序提供的事实。full_record_summary 是完整返回记录集合的树/层级分布，分页 records 仅示例；分析结果中的记录可能是分组，不等于原始对象数量。record_total 是全部返回记录数，returned_record_count 是本页条数。两者不得替换业务计数。
 attributes 优先使用 display_value，缺失按 status 显示“未提供”；raw value 和 evidence 仅供溯源。不能把分页中全部同类推广为全量同类。结果编号留在界面，不写进正文。
+
+兼容属性工具与新入口共享目录简称核验及任务保存；已形成有据任务后直接查询必须用iccm_request，不能通过兼容完整计划丢弃来源、单位或结果目标。
+
+澄清工具与查询工具的execute含义：iccm_request中true表示本轮交付动作，false只能原样保留旧任务；缺项由程序自动澄清，true不意味着强行查询。iccm_clarify永远不执行数据查询，新草稿execute=false也会保存有据参数；update中不带变更的false才是保留原任务。不要因为“不查询数据”而丢失原请求。
+
+
+6. 父对象范围、分组与投影
+每项显式parent_range：新全表查询用all_imported；续改原范围用inherit；PBS根范围用{tree:pbs,field:name/code/identity,value:完整根标识,quote:本轮包含PBS及根标识的逐字片段}。此字段由程序写入同一任务sources和目录，编译为已核验根entity，根范围不进测点自身filters；不能只在quote声明范围却传all_imported。限定对象本身的测量值读取仍是attributes+subject，parent_range=all_imported。缺失/多义根不执行全表查询。当前结构化父范围支持search points计数/记录/排序；跨表链和完整分类使用iccm_relational。
+update parent_range=inherit保留根；改根明确提供新PBS标识原话；明确改全表才all_imported。新问题不能inherit。同一任务的过滤、目标、范围分别保留，状态中的parent_range不是推测的编码前缀。
+按层级、类型、来源、状态分别各多少，走iccm_query analyze group_count；单个count只统计整体，不能代替分组。澄清对象域时保存已知范围/目标，但若分组不能用直接任务表达，可request=null并保留原问句后用原分析工具。
+单档阈值未指明家族时默认真实值；只问高2则properties=[actual_high2]，明确估计值或变化速率偏差保留其家族。泛问全部阈值使用18项具体ID。只/仅属性严格只返回所问属性；用户没问单位不另加unit。按高低排序按从高到低desc；低到高asc必须有相应方向依据。
+对象介绍缺域时程序可提供真实精确跨域候选，身份候选不是读出所问全部属性，不代表已选树；pending domain及属性投影继续保留。补答对象树仍update待补任务。
+
+
+7. 完整跨表任务（V11）
+分类反查、现场完整部件分类、测点与现场/构型/分类链、PBS和构型差异、最近功能位置、同码多原行及资料/结论边界，优先iccm_relational。无需逐表拼工具或要求用户改问法。它复用确定性关系执行器；不要把现场PBS换成构型模板、借上级类别或猜编码前缀。
+request={mode:new或update,tasks:[{id:1至4,quote:本轮逐字原话片段,set:{...}}]}。新任务必须指定kind；关系root={tree,field:code/name/identity,value:完整标识}。同一句多个独立目标用一个new、多个稳定id；update只列改动任务/字段，程序保留其余任务并重新交付完整目录。不要拆成两个new覆盖第一项；relational_task_state为该目录，不等同旧task_state。新话题new；明确改范围、取消限制或改投影时update，并清除不再适用的槽位。任务id始终是整数。
+set合法槽位：root，kind=relation/collection/compare/boundary，population=objects/parts/devices/points，depth=self/direct/all，classes={equipment_class:完整类名称或编码,part_class:完整类名称或编码}，filters=[{field,operator,value字符串}]，group_by=null/class/type/source/location，properties=[目录ID或line/pbs_part/location]，limit=null或1至100，sort=[code/pbs_part/name/source/line]，only=null/missing_class/unmatched，boundary=null/health/duration/classification/same_record，compare_root。
+默认无筛选、无分组、无上限；root=null且collection表示明确全局集合。relation读取精确根和真实关系，不表示后代计数。collection必须分别声明根树、population、depth，按实际现场或构型粒度统计；设备类和部件类描述先精确反查，不是编码尾号。group_by=class适用于部件类别完整分布；group_by=type区分直属部件、子设备。Top只裁展示，完整总数/类数仍报告；取消排名设置limit=null。only=missing_class列出缺关联对象，不能与group_by=class同时表达。
+测点全码或完整名称的relation给精确PBS、直接父、最近部件和设备两种类；没有精确PBS时仍交付原测点并说明缺口。原字段properties使用目录ID，测量时间time；只给字段时严格列所问数组，原字段投影自动复用属性执行器。关联条件与原字段不要混淆。沿真实关系查上级时用目录中已执行resolved身份更新root。
+测点collection按原记录计算，不覆盖同码/同来源行。group_by=source同时交付每来源原行数、不同完整编码数和完整原行；原CSV行号是properties=line，不是内部ID。最近功能位置沿真实PBS父链；global alarm按location分组要保留未匹配组，随后only=unmatched、group_by=null再列未匹配明细。排序默认按现场部件和完整代码，按完整代码要求用sort=[code]。
+同码跨原表的两份relation任务分别声明root，需解释不可合并时boundary=same_record用于两个不同原表任务。PBS全部部件与构型核对用kind=compare，root=现场PBS根，compare_root=精确构型根，population=parts，depth=all；不能只查一种字典或换用另一表的总数。
+健康证据问题用kind=boundary,boundary=health,root=明确PBS范围，程序报告完整监测覆盖和当前有效报警，零报警不证明健康。累计报警时长用boundary=duration，缺开始/恢复历史时返回data_insufficient，不算成0小时。缺分类是否无类别/能否借上级用boundary=classification，保留现场根及缺失部件。不是把这些问题转成无对象的泛化能力说明。
+工具已返回带依据的answer、note、动态列和每项状态，最终按这些事实交付；missing_links及outcome=incomplete表示部分，不说全部分类完成。delivery_result_ids标记实际最终使用的任务回执，中间试查和错误仍保留，不能用模型草稿替换未经执行的数字。
+
+已执行关系续问用角色身份引用：root={task:原整数任务号,role:equipment_class/part_class/parent等已执行resolved角色}；程序从上一回执唯一身份定位。问刚才设备类的上一级，应以equipment_class为root查询其relation，返回该类与真实直接父，不把父编码再作为查询对象跳两层。多值或缺失角色不可猜测。当前明确给出新标识时使用字面root。跨原表同码对比必须一个new内两个relation任务，分别声明root.tree，需说明区别两项均boundary=same_record；不能仅补查其中一表就宣布两项完成。类型分组始终collection/group_by=type，不使用children列表替代。
+
+一轮只维护一个关系任务目录：首次new后补查/纠正必须update；已有成功update也不能用new覆盖本轮结果。只改投影、排序或说明不能改population、根、分类条件。工具已有11条等完整查询回执时，不需另查部件数来替代测点交付；补充不同粒度必须在同一目录保留原任务。
+
+完整部件分类与其缺失对象明细是同一集合目标：group_by=class已经包含总数、完整分布、覆盖度及未关联对象/原因，不能再拆一个独立only=missing_class任务。续问具体缺失对象时update该任务group_by=null,only=missing_class；不能重复保留一项旧分类分布作为独立目标。独立任务用于不同根/不同业务目标，投影和明细补充属于已有目标的展示变更。
+
+关系标识来源复用公共reference_context，从最近六轮原话重新查表核验完整引用，支持先查现场再查构型后对照两套范围；不是只保留最后一个根，也不把模型记忆当依据。沿用旧范围时仍须明确相应角色或完整旧标识，不凭前缀补造。
+
+completed_request_history是最近六次实际执行目标的紧凑目录，不是模型摘要；每项有原问句、实际主体/属性/目标。只读名称不等于换对象或清除此前字段家族。用户回顾、扩展全部字段、要求按数值排列时，结合当前主体和已执行目标历史判定所指字段家族，以当前原话为修改依据update；不要把一个对象的属性组扩为全表对象，也不要仅因最近读了名称就丢弃先前业务目标。没有唯一历史依据时才澄清，历史不授权自动执行未提及目标。

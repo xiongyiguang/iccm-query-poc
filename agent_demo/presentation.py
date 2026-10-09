@@ -15,10 +15,11 @@ OPS = {'search': '筛选记录', 'analyze': '统计分析', 'attributes': '读�
 OPERATORS = {'equals': '等于', 'eq_num': '=', 'ne_num': '≠', 'gt': '>', 'gte': '≥',
              'lt': '<', 'lte': '≤', 'contains': '包含', 'not_contains': '不包含',
              'starts_with': '以此开头', 'is_blank': '为空', 'not_blank': '非空'}
+OPERATORS.update(date_equals='日期属于', date_gte='时间不早于', date_lt='时间早于')
 
 
 def label(field):
-    return {'identity': '名称或编码', 'location': '最近功能位置'}.get(field, CATALOG.get(field, {}).get('label', field))
+    return {'identity': '名称或编码', 'location': '最近功能位置', 'thresholds': '报警阈值'}.get(field, CATALOG.get(field, {}).get('label', field))
 
 
 def condition(f):
@@ -60,6 +61,16 @@ def plan_view(intent):
         row('筛选条件（同时满足）', '开关等于「开启」；报警状态等于「已报警」')
     if intent.get('properties'):
         row('读取内容', '全部属性' if intent['properties'] == ['*'] else '、'.join(label(p) for p in intent['properties']))
+    goal = intent.get('result_goal') or {}
+    if goal:
+        row('交付目标', {'records': '记录列表', 'count': '完整集合计数', 'attributes': '指定属性',
+                       'sort': '排序', 'extreme': '极值及全部并列', 'difference': '两项差值', 'unsupported': '尚不支持'}.get(goal.get('kind')))
+        row('排序 / 计算字段', label(goal.get('field')) if goal.get('field') else '')
+        row('方向', {'asc': '升序 / 最小 / 最早', 'desc': '降序 / 最大 / 最新', 'absolute': '绝对差'}.get(goal.get('direction')))
+        if goal.get('limit') is not None:row('展示数量', str(goal['limit']))
+        if goal.get('kind') == 'difference':
+            row('操作数顺序', ' → '.join(str(x.get('value', '')) for x in goal.get('operands', [])))
+        row('运算口径', '仅原始数值，未认定物理量可比' if goal.get('basis') == 'raw_numbers' else '按数据与物理量证据核验')
     a = intent.get('analysis') or {}
     if a.get('kind') == 'ratio':
         row('统计口径', '按测点源记录计算占比；以上筛选为分母，以下附加条件为分子，不按编码去重')
@@ -92,6 +103,40 @@ def tool_view(name, args, result=None):
 
 
 def _tool_view(name, args, result=None):
+    if name == 'iccm_relational':
+        if result and result.get('items'):
+            return {'title': '分别交付跨表关系任务', 'rows': [], 'tasks': [
+                dict(tool_view(name, {}, item), question=item.get('task_question', '')) for item in result['items']]}
+        state = ((result or {}).get('task_context') or {}).get('relational_state') or (result or {}).get('relational_state') or {}
+        tasks = state.get('tasks') or (args.get('request') or {}).get('tasks') or []
+        tid = (result or {}).get('task_number')
+        task = next((t for t in tasks if t.get('id') == tid), tasks[0] if tasks else {})
+        q = task.get('spec') or task.get('set') or {}
+        root = q.get('root')
+        if root and 'role' in root:
+            roles = {'subject':'原对象','equipment_class':'设备类','part_class':'部件类','parent':'直接父对象',
+                     'pbs':'PBS对象','pbs_parent':'PBS直接父对象','pbs_part':'现场部件','pbs_device':'现场设备',
+                     'config':'精确构型','equipment_config':'设备构型'}
+            root_text = '任务 ' + str(root['task']) + ' 已查到的' + roles[root['role']] + '；等待核验唯一身份'
+        else:
+            root_text = (TREES.get(root['tree'], root['tree']) + ' · ' + root['value']) if root else '沿用关系任务目录或已明确全表'
+        rows = [{'label': '对象 / 范围', 'text': root_text}]
+        rows.append({'label': '交付目标', 'text': {'relation': '精确对象及实际关系', 'collection': '完整关联集合', 'compare': '现场与构型逐项核对', 'boundary': '核查资料与结论依据'}.get(q.get('kind'), '核对任务变更')})
+        if q.get('kind') == 'collection':
+            rows.append({'label': '集合范围', 'text': {'self': '对象自身', 'direct': '直接下级', 'all': '全部下级'}.get(q.get('depth'), '执行后核验')})
+        return {'title': '跨表关系查询', 'rows': rows, 'route': (result or {}).get('note', '按真实父关系及精确引用执行；缺失不补造'), 'executed': bool(result and result.get('status') in ('ok', 'batch', 'data_insufficient'))}
+    if name == 'iccm_request':
+        if result:
+            if result.get('items'):
+                return {'title': '分别完成本轮任务', 'rows': [], 'tasks': [
+                    dict(tool_view('iccm_request', {}, item), question=item.get('task_question', '')) for item in result['items']]}
+            receipt = result.get('query_receipt')
+            if receipt:
+                return tool_view('iccm_query', {'intent': receipt}, result)
+            return {'title': '保留任务，确认待补项', 'rows': [], 'route': result.get('answer', '本轮未执行数据查询'), 'executed': False}
+        tasks = (args.get('request') or {}).get('tasks', [])
+        return {'title': '核对本轮任务与条件变更', 'rows': [], 'tasks': [
+            {'question': task.get('quote', ''), **request_plan_view(task)} for task in tasks]}
     if name == 'iccm_clarify':
         return {'title': '确认缺失的查询条件', 'rows': [], 'route': '保留已有条件，等待补充；尚未执行数据查询', 'executed': False}
     if name == 'iccm_attributes':
@@ -135,3 +180,20 @@ def _tool_view(name, args, result=None):
         return {'title': '查看后续明细', 'rows': [{'label': '页码', 'text': str(args.get('page', 1))}],
                 'route': '读取本对话已有查询结果，不重新扩大查询范围'}
     return {'title': '核对项目概念与数据关系', 'rows': []}
+
+
+def request_plan_view(task):
+    """待执行时展示声明的父范围与主体，不把它们伪装成已定位事实。"""
+    view=plan_view(task.get('set',{}));parent=task.get('parent_range')
+    if isinstance(parent,dict):
+        view['rows']=[r for r in view['rows'] if r['label']!='对象 / 范围']
+        view['rows'].append({'label':'父对象范围（待核验）','text':'PBS现场对象 · '+str(parent.get('value',''))+'；自身及全部后代关联测点'})
+    elif parent=='inherit':
+        view['rows']=[r for r in view['rows'] if r['label']!='对象 / 范围']
+        view['rows'].append({'label':'对象 / 范围','text':'沿用原任务范围，执行后展示实际依据'})
+    subject=task.get('subject')
+    if isinstance(subject,dict):view['rows'].append({'label':'所问对象（待定位）','text':str(subject.get('value',''))})
+    for edit in task.get('filters',[]):
+        values='；'.join(condition(c) for c in edit.get('conditions',[]))
+        view['rows'].append({'label':'条件变更（待核验）','text':{'add':'追加','replace':'替换','remove':'移除原条件'}.get(edit.get('action'),'核验')+('：'+values if values else '')})
+    return view

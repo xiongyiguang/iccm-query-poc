@@ -20,6 +20,13 @@ def exact_lookup_subject(intent,result,version):
  return {k:row[k] for k in ('tree','code','name')}|{'version':version}
 
 def task_context(intent,result):
+ if intent.get('operation')=='relational':
+  from relational_query import legacy_context
+  tasks=intent['relational_tasks']
+  c=legacy_context(result,result.get('relational_state'),tasks[0]['spec']) if len(tasks)==1 else {'entity':None,'scope':'direct','operation':'relational','relational_state':result.get('relational_state')}
+  if result.get('query_receipt'):c['query_receipt']=result['query_receipt']
+  if result.get('query'):c['query']=result['query']
+  return c
  if result.get('status') in ('clarify','data_insufficient'):
   return {'pending_request':intent,'clarification':result['answer']}
  if result.get('outcome'):
@@ -43,6 +50,9 @@ def task_context(intent,result):
 
 def execute_plan(store,intent):
  intent=validate(intent)
+ if intent['operation']=='relational':
+  from relational_query import execute
+  return execute(store,intent)
  if intent['operation']!='batch':return execute_one(store,intent)
  results=[]
  for i,task in enumerate(intent['tasks'],1):

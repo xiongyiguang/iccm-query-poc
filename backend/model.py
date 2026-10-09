@@ -14,7 +14,7 @@ from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 LEGACY_SCHEMA=ROOT/'prompts/system/query-intent-v24.schema.json'
 SCHEMA=ROOT/'prompts/system/query-intent-v32.schema.json'
-PROMPT=ROOT/'prompts/system/query-intent-v32.txt'
+PROMPT=ROOT/'prompts/system/query-intent-v33.txt'
 MODEL=os.environ.get('DEEPSEEK_MODEL','deepseek-v4-flash')
 ENDPOINT='https://api.deepseek.com/chat/completions'
 
@@ -76,6 +76,10 @@ def status():
             'message':f'DeepSeek · {MODEL} · 密钥已配置，连接待实测' if ready else 'DeepSeek 待配置密钥；可先体验引导查询'}
 
 def validate(parsed):
+    if isinstance(parsed,dict) and parsed.get('operation')=='relational':
+        from relational_query import validate_plan
+        try:return validate_plan(copy.deepcopy(parsed))
+        except ValueError as e:raise PlanInvalid(str(e)) from None
     if isinstance(parsed,dict) and 'navigate' in parsed and (parsed.get('operation')!='parent' or type(parsed['navigate']) is not bool):
         raise ModelUnavailable('导航标识仅适用于父关系，且须为布尔值。')
     if isinstance(parsed,dict) and parsed.get('operation')=='batch':
@@ -240,6 +244,17 @@ def interpret(question,context,selection,store=None):
     key=os.environ.get('DEEPSEEK_API_KEY','').strip()
     if not key:
         raise ModelUnavailable('DeepSeek 尚未配置 API 密钥。请在本机启动窗口配置；引导查询仍可使用。')
+    if store is not None:
+        from relational_planner import interpret as interpret_relational
+        try:
+            relational=interpret_relational(question,{**context,'verified_references':verified_references},key,store)
+        except ValueError as error:
+            TRACE.value={'engine':'relational_request','source_question':question,'checklist_failure':getattr(error,'extraction_trace',None)}
+            raise PlanInvalid(str(error)) from None
+        except (urllib.error.URLError,TimeoutError,socket.timeout):
+            raise ModelUnavailable('关系语义服务未完成，未执行查询。') from None
+        if relational:
+            plan,trace=relational;TRACE.value=trace;return validate(plan)
     route=None
     request_engine=os.environ.get('ICCM_REQUEST_ENGINE','contract')!='legacy'
     original_context=copy.deepcopy(context)
@@ -449,6 +464,9 @@ def bind_references(store,question,plan,context=None):
     from request_gateway import clear_verification,migrate,seal,validate_categories
     clear_verification()
     try:
+        if plan.get('operation')=='relational':
+            from relational_planner import bind
+            return bind(store,question,plan,context,get_trace() or {})
         if (get_trace() or {}).get('clarification_resolution'):
             from clarification_state import resolve_answer
             resolved=resolve_answer(question,context or {},get_trace().get('programmatic_selection'),store)

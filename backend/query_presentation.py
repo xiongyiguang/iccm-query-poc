@@ -4,6 +4,13 @@ from query_filters import describe,TARGET_LABELS
 
 
 def attach_basis(result,intent):
+    if intent.get('operation')=='relational':
+        children=result.get('items') or [result]
+        for item,task in zip(children,intent['relational_tasks']):
+            q=task['spec'];root=q['root'];label=({'pbs':'现场PBS','config':'构型树','equipment_class':'设备类表','part_class':'部件类表','points':'监测表'}.get(root['tree']) if root else '全表')
+            item['business_scope']=label+' · '+(root['value'] if root else '当前导入范围')+' · '+{'self':'对象自身','direct':'直接下级','all':'全部下级'}[q['depth']]+' · '+{'objects':'所有对象类型','parts':'部件','devices':'设备','points':'测点原记录'}[q['population']]
+            item['query_basis']={'summary':item['business_scope'],'note':item.get('note',''),'conditions':json_description(q),'plan':copy.deepcopy(q),'resolved_entity':item.get('entity')}
+        return
     if result.get('status')=='batch':
         for item,task in zip(result.get('items',[]),intent.get('tasks',[])):
             attach_basis(item,task['intent'])
@@ -32,3 +39,10 @@ def attach_basis(result,intent):
         'conditions':conditions,
         'plan':copy.deepcopy({k:v for k,v in intent.items() if k not in ('clarification','message')}),
         'resolved_entity':copy.deepcopy(entity)}
+
+
+def json_description(spec):
+    parts=[{'equipment_class':'设备类','part_class':'部件类'}[k]+' = '+v for k,v in spec['classes'].items()]
+    parts += [describe({'target':'points' if spec['population']=='points' else 'pbs','filters':[f]}) for f in spec['filters']]
+    if spec['only']:parts.append('关联检查：'+{'missing_class':'分类依据缺失','unmatched':'未匹配实际功能位置'}[spec['only']])
+    return '；'.join(parts)

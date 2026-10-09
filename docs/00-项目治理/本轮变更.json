@@ -1,34 +1,28 @@
 {
-  "change_id": "ICCM-DEEPSEEK-RELEASE-20261009",
-  "request_ref": "用户：DeepSeek版本的提交推送GitHub，部署腾讯云",
-  "scope": "普通版backend/frontend/prompts/相关测试与设计；Agent本地修复不发布",
-  "profile": "Release",
+  "change_id": "ICCM-RELEASE-R13-20261009",
+  "request_ref": "用户：全部提交 部署",
+  "baseline_path": "docs/07-部署与运维/DeepSeek普通版r12发布记录-20261009.md",
+  "baseline_version": "腾讯云r12；本机关联普通V9、Agent V12.1",
+  "scope": "全量项目源码文档提交推送；普通版腾讯云r13部署；本机Agent加载最新实现",
+  "impact_reason": "发布已验证本机公共机制修复，保持原数据和配置",
+  "impacted_gates": [
+    "regression_boundary_confirmed",
+    "ai_boundary_confirmed"
+  ],
   "affected_modules": [
     "backend",
     "frontend",
     "ai",
-    "deployment"
+    "agent",
+    "deployment",
+    "docs",
+    "tests"
   ],
   "high_risk": false,
-  "release_authorized": true,
-  "rollback_target": "/opt/iccm-8899/releases/20261008-r11",
-  "data_migration": false,
-  "validation_plan": "候选本机608项、目标机608项、前端运行检查、冻结117步真实DeepSeek及公开入口鉴权/制品核验",
-  "execution_status": "DeepSeek普通版r12已推送并部署；本机/目标机608项及117步真实DeepSeek通过，公网与数据/配置/制品核验通过；Agent本机新改动不发布，非客户正式验收",
-  "validation_evidence": "docs/07-部署与运维/DeepSeek普通版r12发布记录-20261009.md",
-  "execution_result": {
-    "git_source_commit": "8daa644a98006623fe6be0191228f479cf312891",
-    "git_push": "verified remote master",
-    "release": "/opt/iccm-8899/releases/20261009-r12",
-    "service": "active/running",
-    "local_offline": "608/608",
-    "target_offline": "608/608",
-    "local_deepseek": "117/117",
-    "target_deepseek": "117/117",
-    "public_browser": "实际页面查询及两视口检查通过，非移动端正式视觉验收",
-    "data_config_unchanged": true,
-    "rollback_retained": "r11",
-    "actual_rollback_rehearsal": false,
-    "agent_repairs_published": false
-  }
+  "business_change": false,
+  "confirmation_ref": "用户最新明确全部提交部署；已有DeepSeek和Codex脱敏实测授权",
+  "validation_plan": "已冻结本机证据核对；目标机离线665及135；独立普通48+117真实回放；公网认证实际浏览器问答；源码、数据、配置指纹与回退点",
+  "execution_status": "准备发布，尚未切换",
+  "previous_change_path": "docs/.staging/release-r13-20261009/previous-change.json",
+  "verification_source": "docs/07-部署与运维/全量源码及r13发布记录-20261009.md"
 }

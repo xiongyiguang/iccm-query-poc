@@ -147,6 +147,9 @@ class Store:
                     if candidate['code'] != current['code']:
                         evidence.append(self.ref(candidate))
                     break
+                # 最近的真实结构对象缺少精确构型时，不能借上级
+                # 构型回答该对象的分类。设备归属应单独沿真实设备父边查。
+                raise BusinessOutcome('incomplete','已找到现场结构对象，但其精确构型缺失或类型不一致；不能用上级构型替代。',entity)
             if row is None:
                 raise BusinessOutcome('incomplete','已找到现场对象，但缺少经过记录校验的构型关联，暂时无法完成此项查询。',entity)
         else:

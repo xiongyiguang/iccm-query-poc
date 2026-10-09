@@ -1,19 +1,31 @@
 # Prompt 资产管理
 
-2026-10-09发布候选：本次仅发布DeepSeek普通版公共机制修复，活跃协议V32/V28/V25、业务请求V10/独立清单V13；Codex智能体保留已提交交接版本。发布状态和本轮实测以[普通版r12发布记录](../07-部署与运维/DeepSeek普通版r12发布记录-20261009.md)为准；下文旧日期的“未发布”及r11表述为历史事实，不代表本轮最终状态。
-
-## 当前交接入口（2026-10-08）
+## 当前本地源码入口（2026-10-09，未发布）
 
 |路径|当前职责|生效源|
 |---|---|---|
-|prompts/system/query-intent-v32.txt及v32.schema.json|普通语义路由与请求协议|backend/model.py|
+|prompts/system/query-intent-v33.txt及v32.schema.json|普通语义路由与请求协议|backend/model.py|
 |prompts/system/context-scope-v28.txt|普通上下文与主体边界|backend/model.py|
-|prompts/system/request-checklist-v25.txt|独立完整条件提取|backend/request_checklist.py|
-|agent_demo/knowledge.txt（V7）|Agent初始化业务知识|agent_demo/runtime.py|
-|agent_demo/query-guide.txt（V4）|Agent查询工具与口径|agent_demo/tools.py|
-|agent_demo/completion-check.txt（V2）|缺业务回执时的一次补查|agent_demo/server.py|
+|prompts/system/request-checklist-v26.txt|独立完整条件提取|backend/request_checklist.py|
+|prompts/system/relational-request-v8.txt|受限关系候选语义抽取|backend/relational_planner.py|
+|prompts/system/relational-semantic-v3.txt|不读候选的完整关系清单抽取|backend/relational_planner.py|
+|agent_demo/knowledge.txt（V14）|Agent初始化业务知识|agent_demo/runtime.py|
+|agent_demo/query-guide.txt（V11）|Agent查询工具与口径|agent_demo/tools.py|
+|agent_demo/completion-check.txt（V4）|缺完成目标回执时的一次补查|agent_demo/server.py|
 
-版本由当前调用代码与专项记录核验，不凭目录中最高文件名推断运行入口。旧版本保留以支持追溯和回退；本轮不翻译执行Prompt、不改JSON字段、标识符、模型参数或规则字符串。代码注释的中文化与模型Prompt变更分开。普通版对应r11；Agent独立本机V4。具体输入输出、并行清单和兼容边界见模型与评测设计、Agent工作流设计。
+版本由当前调用代码与专项记录核验，不凭目录中最高文件名推断运行入口。旧版本保留以支持追溯和回退；第三轮修复新增结果目标、日期类型、可核验引用及补答规则；主Flash与独立Pro配置不变。当前本机活跃版本为V33/V28/V26，关系V8/独立关系V3，旧版完整保留。V33仅补测点上下文与原字段入口兼容；V26补完整清单字段及新主体身份优先，关系契约与旧语义路径分别核验。公开交接副本及腾讯云版本按已发布记录读取，本轮没有更新这些服务，不把本地文件最高版本当作已部署事实；Agent当前独立本机V12.1；原交接副本V4不变。具体输入输出、并行清单和兼容边界见模型与评测设计、Agent工作流设计。
+
+前轮Agent知识V9、工具协议V6、完成检查V3；协议公开Schema在V6.1修正search空属性约束，并用于程序入口校验。父对象范围与测点自身条件分别声明；目录主题只用于说明，不替代分组工具。单档阈值未指明家族时依既有业务约定默认真实值；严格只/仅投影。原文本随改前归档保留，V6.1未改变知识文件版本。
+
+前一轮Agent V6.1修复未改普通版Prompt；本轮多表修复修改普通版入口，真实成绩及Codex冻结对照见[多表关联集中修复验证](../06-测试与验收/多表关联集中修复验证-20261009.md)。V5相同代码Luna业务复核104/117、Sol114/117，分别保留，不混记成代码改善；V6.1的102项离线通过，最终真实回放与未关闭边界唯一登记于[缺口修复验证](../06-测试与验收/Codex智能体缺口修复验证-20261008.md)。
+
+## 前轮公共机制扩展本机验证（V28/V24/V20）（2026-10-08）
+
+当时扩展实现含有向/绝对差区分、按操作数完整位跨度的局部Decimal精度、毫秒/微秒年边界校验、计算目标与执行路径约束、非空完整候选集合等价及点选身份来源继承。取消计算/排序归控制，实际新输出仍完整对应任务。候选等价只用于属性未命中的待选择状态，不放宽实际查询；点选仅替换当前合法身份槽位，保留其他筛选和目标。普通离线579/579、Agent共享44/44，真实新增35/35、历史29/29、第三轮26/26及实际页面检查完成，仍有2步超过5秒，未发布。当时结论唯一源为[公共机制扩展排查V2](../06-测试与验收/公共机制扩展排查-20261008.md)；此前第三轮561项成绩是其当时版本证据。
+
+## 追加当前语义协议
+
+前一轮活跃版本V32/V28/V25：整组new优先于续改继承；续改重新交付目标；明确属性请求保留完整字段；PBS根测点范围由共享能力目录路由已有专用查询；raw_numbers口径独立提取；阈值集合排序不以空properties代替。V29至V32、上下文V25至V28和独立V21至V25的每版原文件均保留；前版真实失败也保留。极值集合与有序列表先判返回集合，再判顺序；程序保持两者不等价。当前605项普通离线、44项Agent共享、117步真实回归及页面检查完成，有已知限制，详见[公共机制扩展排查V3](../06-测试与验收/公共机制扩展排查-20261008.md)。
 
 ## 历史记录
 
@@ -321,3 +333,9 @@ context-scope-v19与request-checklist-v16新增构型根parts列表/计数的结
 独立入口知识唯一源`agent_demo/knowledge.txt`升至V7，专用工具协议`agent_demo/query-guide.txt`为V4，单次完成检查`agent_demo/completion-check.txt`为V2。保留原V2知识与中间失败证据，不修改常规版prompts或DeepSeek模型配置。初始化提供对象域、身份/关系区别、范围与单位、分页事实和显示值规则；目录按需提供字段与工具用法。`agent_demo/bindings.py`和工具适配器承担来源约束与统计，不把业务计算隐藏于Prompt。
 
 输入为脱敏问句、成功回执/待澄清草稿、完整字面引用；输出仍为只读工具调用与中文答复。gpt-6-luna/low不变。冻结原29步、13步变体与现场问句及实际界面验证；结果统一见`docs/05-专项设计/本机Codex智能体演示.md`，不以本条登记代表通过。
+
+2026-10-09 Agent V12关联接入：iccm_relational复用受限关系执行器，目录支持稳定整数任务与真实已执行角色身份引用；同轮补查只能update。模型仍为项目新会话Sol/low，没有另调DeepSeek。最终事实发布按程序delivery_result_ids对应的真实回执，保留独立主体及缺失说明；当前关联48/48及历史117/117业务复核通过，结论唯一登记于多表关联集中修复验证。
+
+Agent V12沿用知识V14、查询协议V11、完成检查V4。新增已完成目标历史指导及同类角色身份去重；历史仅来自真实完成且执行的分支，不继承未执行待答提案。当前V12同234文件关联48/48、历史原V3复核117/117通过；专项原阈值三步3/3不能代替完整回归。
+
+当前本机V12.1补齐显式澄清候选回执的entity=None/scope=direct，保留未选定对象和pending domain，不执行属性或计算。V12完整关联48/48、历史原断言107/117及原V3业务复核117/117保持原记录；追加原B03a-e五步真实5/5，最新135项离线通过。V12.1未重新跑全部165步，影响范围与证据单列，普通197文件和数据未改。 详细关闭边界以多表关联集中修复验证为准。

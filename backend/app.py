@@ -192,7 +192,17 @@ class Handler(BaseHTTPRequestHandler):
                     model_context['verified_schema']={'business_catalog':business_catalog(store),'literal_references':literal_references(question,store)}
                     from request_gateway import reference_context
                     model_context['verified_references']=reference_context(model_context,body.get('selection'),store,question,model_context['verified_schema']['literal_references'])
-                    intent=interpret(question,model_context,body.get('selection'),store=store)
+                    try:intent=interpret(question,model_context,body.get('selection'),store=store)
+                    except ModelUnavailable:
+                        if (get_trace() or {}).get('engine')=='relational_request':
+                            # 失败原话是待核验输入，不是已确认结果；在本请求
+                            # 仍持有会话标记时保存，防止迟到错误污染新请求。
+                            with LOCK:
+                                if SESSIONS.get(sid) is session and session.get('busy') is request_owner:
+                                    session['context']['relational_pending_question']=question
+                                    session['context']['relational_pending_questions']=(session['context'].get('relational_pending_questions',[])+[question])[-6:]
+                                    session['context']['pending_question']=question
+                        raise
                     with LOCK:
                         if SESSIONS.get(sid) is not session:return self.send(409,{'error':'会话已取消，未继续核验或执行查询。'})
                     from model import bind_references

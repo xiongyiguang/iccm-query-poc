@@ -7,7 +7,7 @@ function notice(text){$('notice').textContent=text;}
 function buttons(){const s=state.current;$('send').disabled=state.creating||!state.token||!s||s.busy;$('stop').hidden=!s?.busy;$('activity').textContent=state.creating?'正在建立会话…':s?.busy?'正在核查数据…':'先核查，再回答';}
 function list(){ $('sessions').replaceChildren();for(const s of state.sessions){const b=el('button',s.title,s===state.current?'active':'');b.onclick=()=>select(s);$('sessions').append(b);}}
 function select(s){state.current=s;$('conversation').replaceChildren();for(const e of s.events)render(e);list();buttons();$('model').textContent=s.model;}
-async function create(){const old=state.current;try{state.creating=true;buttons();$('new').disabled=true;notice('正在建立独立智能体会话…');const v=await api('/api/new',{model:$('model-choice').value});const s={...v,title:'新对话',events:[],cursor:0,busy:false};state.sessions.unshift(s);state.current=s;if(old)select(s);list();buttons();$('model').textContent=s.model+' · 低推理';notice('仅本机 · 与 r10 独立运行');}catch(e){notice(e.message);}finally{state.creating=false;$('new').disabled=false;buttons();}}
+async function create(){const old=state.current;try{state.creating=true;buttons();$('new').disabled=true;notice('正在建立独立智能体会话…');const v=await api('/api/new',{model:$('model-choice').value});const s={...v,title:'新对话',events:[],cursor:0,busy:false};state.sessions.unshift(s);state.current=s;if(old)select(s);list();buttons();$('model').textContent=s.model+' · 低推理';notice('仅本机 · 独立会话');}catch(e){notice(e.message);}finally{state.creating=false;$('new').disabled=false;buttons();}}
 function findItem(id){return [...$('conversation').querySelectorAll('[data-id]')].find(n=>n.dataset.id===id);}
 function processBody(){return [...$('conversation').querySelectorAll('.process-body')].at(-1);}
 function processStatus(text){const p=processBody();if(p){p.parentElement.querySelector('.process-status').textContent=text;const step=p.querySelector('.process-step span:last-child');if(step)step.textContent='已核对本次会话和数据快照。';}}
@@ -42,7 +42,22 @@ function showResult(container,r){
    const trees={pbs:'PBS',config:'构型树',equipment_class:'设备类',part_class:'部件类'};
    rows=r.records.map(row=>fields.map(f=>f==='tree'?(trees[row[f]]||row[f]):row[f]));}
   tableView(container,columns,rows);
-  container.append(el('p','第 '+(r.page||1)+' 页 · 本页 '+r.records.length+' 条'+(r.has_more?'；尚有后续明细，可继续提问“查看下一页”。':'。'),'detail-hint'));
+  container.append(el('p','第 '+(r.page||1)+' 页 · 本页 '+r.records.length+' 条 · 明细共 '+(r.record_total??r.records.length)+' 条','detail-hint'));
+  if(r.result_id&&((r.page||1)>1||r.has_more)){
+   const controls=el('div',undefined,'result-pages'),owner=state.current?.id,tid=r.task_number;
+   for(const [text,num,disabled] of [['上一页',(r.page||1)-1,(r.page||1)<=1],['下一页',(r.page||1)+1,!r.has_more]]){
+    const b=el('button',text);b.type='button';b.disabled=disabled;
+    b.onclick=async()=>{const prior=[...controls.querySelectorAll('button')].map(x=>[x,x.disabled]);for(const [x] of prior)x.disabled=true;
+     try{const response=await api('/api/page',{session:owner,result:r.result_id,page:num});
+      const value=tid&&response.items?response.items.find(x=>x.task_number===tid):response;
+      if(!value)throw Error('该任务分页已失效，请重新查询');
+      const heading=container.querySelector(':scope>summary,:scope>h4');
+      if(heading?.tagName==='SUMMARY')heading.textContent='查看明细与依据 · 第 '+value.page+' 页 · 本页 '+(value.records?.length||0)+' 条';
+      container.replaceChildren(...(heading?[heading]:[]));showResult(container,value);
+     }catch(e){notice('分页未完成：'+e.message);for(const [x,disabled] of prior)x.disabled=disabled;}
+    };controls.append(b);
+   }container.append(controls);
+  }
  }
  for(const item of r.items||[]){const section=el('section',undefined,'query-task');if(item.task_question||item.question)section.append(el('h4',item.task_question||item.question));showResult(section,item);container.append(section);}
  evidenceView(container,r);
@@ -70,9 +85,9 @@ function render(e){const c=$('conversation'),near=c.scrollHeight-c.scrollTop-c.c
   n.append(heading,fields,el('div',undefined,'tool-content'),tech);(processBody()||c).append(n);
  }
  else if(e.kind==='tool_result'){
-  n=findItem(e.id);if(n){const r=e.result;const needsAttention=(x)=>!!(x.status&&!['ok','success','completed','batch'].includes(x.status))||x.items?.some(needsAttention);
+  n=findItem(e.id);if(n){const r=e.result;const partial=(x)=>!!x.outcome||!!x.missing_links?.length||!!x.relation_delivery?.partial_or_insufficient||x.items?.some(partial);const needsAttention=(x)=>partial(x)||!!(x.status&&!['ok','success','completed','batch'].includes(x.status))||x.items?.some(needsAttention);
    const attention=needsAttention(r),candidate=r.match_type==='candidates_only';n.dataset.status=attention||candidate?'attention':'completed';
-   n.querySelector('.tool-status').textContent=(attention?'需要核对':candidate?'仅候选，未选定':'已完成')+' · '+e.seconds+'秒';
+   n.querySelector('.tool-status').textContent=(partial(r)?'部分结果 / 资料不足':attention?'需要核对':candidate?'仅候选，未选定':'已完成')+' · '+e.seconds+'秒';
    // 工具调用已经返回，不一定代表业务查询执行成功。
    const executed=!attention&&(!!r.query_receipt||e.tool==='iccm_page'||r.status==='batch');
    understanding(n.querySelector('.query-understanding'),e.presentation,executed,true);
@@ -85,7 +100,7 @@ function render(e){const c=$('conversation'),near=c.scrollHeight-c.scrollTop-c.c
   }
  }
  else if(e.kind==='tool_error'){
-  processStatus('查询遇到问题');n=findItem(e.id);if(n){n.dataset.status='error';understanding(n.querySelector('.query-understanding'),n._view,false,true);n.querySelector('.tool-status').textContent='未执行成功';n.querySelector('.tool-content').append(el('p',e.text,'error'));}
+  processStatus('查询遇到问题');n=findItem(e.id);if(n){n.dataset.status='error';understanding(n.querySelector('.query-understanding'),n._view,false,true);n.querySelector('.tool-status').textContent='未执行成功';n.querySelector('.tool-content').append(el('p',String(e.text).startsWith('request.')?'查询参数未通过核验，正在重新核对。':e.text,'error'));if(String(e.text).startsWith('request.'))n.querySelector('.technical').append(el('pre','校验详情：'+e.text));}
  }
  else if(e.kind==='error'){closeRunning('未完成');processStatus('处理遇到问题');c.append(el('div',e.text,'error'));}
  else if(e.kind==='progress')c.append(el('div',e.text,'done'));
