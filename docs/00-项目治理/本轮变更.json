@@ -22,7 +22,10 @@
   "business_change": false,
   "confirmation_ref": "用户最新明确全部提交部署；已有DeepSeek和Codex脱敏实测授权",
   "validation_plan": "已冻结本机证据核对；目标机离线665及135；独立普通48+117真实回放；公网认证实际浏览器问答；源码、数据、配置指纹与回退点",
-  "execution_status": "准备发布，尚未切换",
+  "execution_status": "全部源码文档推送；腾讯云r13部署完成，665/135离线、48+117真实DeepSeek原判据及公网实际页面通过；本机8765/8771最新版加载并真实问答分页通过，数据配置不变，r12保留，未回退演练",
   "previous_change_path": "docs/.staging/release-r13-20261009/previous-change.json",
-  "verification_source": "docs/07-部署与运维/全量源码及r13发布记录-20261009.md"
+  "verification_source": "docs/07-部署与运维/全量源码及r13发布记录-20261009.md",
+  "source_commit": "72eee92a5cba45656a2dcc0c1bf1b693884ff98b",
+  "target_release": "/opt/iccm-8899/releases/20261009-r13",
+  "evidence_final": "docs/.staging/release-r13-20261009/cloud-final.json"
 }
