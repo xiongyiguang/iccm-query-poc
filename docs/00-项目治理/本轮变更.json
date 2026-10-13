@@ -23,7 +23,7 @@
   "business_change": false,
   "confirmation_ref": "2026-10-13用户明确授权当前完整代码文档提交推送GitHub及腾讯云部署；已授权必要脱敏DeepSeek测试持续有效",
   "validation_plan": "共用Graph/旧关联入口；合成角色矩阵+客户CSV独立基线、20定向；最终完整普通/共享离线；同版新48旧48历史117、基础26、客户6及角色12真实问答；原题/判据不变，证据全部保留",
-  "execution_status": "发布准备：本机同版267真实服务步骤、930普通/135共享离线通过；待Git提交推送、云端隔离验证、切换及公网核验",
+  "execution_status": "发布已完成：运行提交fbd9b34推送GitHub，腾讯云current为20261013-r14 active/running；目标机930/135离线及前端通过，同Git257真实步骤全通过，正式客户原题6/6、公网页面3/3和保护/制品核验通过。原CSV、活动导入、认证、模型、Nginx不变；r13保留回退但未演练；候选和转发关闭。本机8765/8771未替换，Codex模型未上云，复杂第四轮继续暂缓。",
   "previous_change_path": "docs/.staging/release-r14-20261013/before-本轮变更.json",
   "verification_source": "docs/07-部署与运维/r14发布记录-20261013.md"
 }
