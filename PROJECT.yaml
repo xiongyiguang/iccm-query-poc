@@ -10,8 +10,8 @@ project:
   slug: "iccm-query-poc"
   type: "客户POC技术原型"
   shape: "本机与腾讯云演示Web智能问数助手"
-  delivery_goal: "已验证基础单表及多表关联版本发布GitHub和腾讯云；客户原题固定回归，复杂第四轮暂缓"
-  stage: "腾讯云普通r14已发布运行fbd9b34；930/135离线，目标257真实回归、正式客户6及公网页面3通过；数据配置保持，r13可回退"
+  delivery_goal: "当前单轮正反向关联云端盲测与公共修复；原客户/历史固定回归，复杂多轮暂缓；正式r14保持"
+  stage: "r15发布准备：C15同版308真实步骤及975/135目标验证通过；已授权提交推送及正式部署，等待切换后客户原题验证"
   owner: "用户负责业务确认，Codex负责设计实现"
   created_at: "2026-09-14"
   updated_at: "2026-10-13"
@@ -43,24 +43,25 @@ execution:
 
 governance:
   startup_scope_confirmed: true
-  execution_profile_confirmed: false
+  execution_profile_confirmed: true
   risk_review_confirmed: false
   independent_review_confirmed: false
   rollback_validated: false
-  product_strategy_confirmed: false
-  requirements_confirmed: false
-  business_design_confirmed: false
+  product_strategy_confirmed: true
+  requirements_confirmed: true
+  business_design_confirmed: true
   architecture_confirmed: true
-  data_design_confirmed: false
-  reuse_assessment_confirmed: false
+  data_design_confirmed: true
+  reuse_assessment_confirmed: true
   ai_boundary_confirmed: true
   semantic_extraction_design_confirmed: false
-  acceptance_criteria_confirmed: false
-  acceptance_scenarios_confirmed: false
+  acceptance_criteria_confirmed: true
+  acceptance_scenarios_confirmed: true
   regression_boundary_confirmed: true
-  vertical_slice_defined: false
+  vertical_slice_defined: true
   interaction_baseline_confirmed: true
-  test_plan_confirmed: false
+  test_plan_confirmed: true
+  # 本轮用户明确授权已验证C15提交推送及正式发布，见r15发布记录。
   release_authorized: true
 
 template_changelog:

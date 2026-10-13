@@ -1,10 +1,10 @@
 {
-  "change_id": "ICCM-R14-RELEASE-20261013",
-  "request_ref": "用户最新：提交、推送、部署",
-  "baseline_path": "docs/05-专项设计/多表关联公共机制修复-20261009.md",
-  "baseline_version": "未发布S26工作区；客户原题第一问错误0类0部件，实际23类90部件",
-  "scope": "当前本机已验证版本发布到腾讯云普通DeepSeek演示；复杂第四轮仍暂缓，Codex不迁移云端",
-  "impact_reason": "设备类表含分类与设备型号；旧执行器将型号直接比对所属设备类，产生伪零；资料不足不能冒充零",
+  "change_id": "ICCM-SINGLE-ROLE-BLIND-20261013",
+  "request_ref": "用户要求未测过单轮设备类/设备构型/现场设备关联盲测，腾讯云实测，允许DeepSeek，发现问题集中修复，复杂多轮暂缓",
+  "baseline_path": "docs/06-测试与验收/设备节点角色修复-20261013.md",
+  "baseline_version": "腾讯云20261013-r14，运行fbd9b347；本机文档0a188921",
+  "scope": "本轮新增51道冻结单轮关联题，公共缺陷集中本机修复及隔离云端候选验证；原257步检查影响，复杂多轮不重做；不提交推送或切换正式服务",
+  "impact_reason": "继续查正反向关联与模板/现场对象粒度边界，防止角色/零值/缺失状态混淆",
   "impacted_gates": [
     "architecture_confirmed",
     "data_design_confirmed",
@@ -16,14 +16,14 @@
     "backend",
     "ai",
     "tests",
-    "docs",
-    "deployment"
+    "docs"
   ],
   "high_risk": false,
   "business_change": false,
-  "confirmation_ref": "2026-10-13用户明确授权当前完整代码文档提交推送GitHub及腾讯云部署；已授权必要脱敏DeepSeek测试持续有效",
-  "validation_plan": "共用Graph/旧关联入口；合成角色矩阵+客户CSV独立基线、20定向；最终完整普通/共享离线；同版新48旧48历史117、基础26、客户6及角色12真实问答；原题/判据不变，证据全部保留",
-  "execution_status": "发布已完成：运行提交fbd9b34推送GitHub，腾讯云current为20261013-r14 active/running；目标机930/135离线及前端通过，同Git257真实步骤全通过，正式客户原题6/6、公网页面3/3和保护/制品核验通过。原CSV、活动导入、认证、模型、Nginx不变；r13保留回退但未演练；候选和转发关闭。本机8765/8771未替换，Codex模型未上云，复杂第四轮继续暂缓。",
-  "previous_change_path": "docs/.staging/release-r14-20261013/before-本轮变更.json",
-  "verification_source": "docs/07-部署与运维/r14发布记录-20261013.md"
+  "confirmation_ref": "2026-10-13最新用户明确授权本轮真实脱敏DeepSeek问答及集中修复",
+  "validation_plan": "原CSV独立预期和冻结判据；腾讯云r14首测保留原失败；受影响角色矩阵、客户原题、旧48/新48/历史117同候选回归，未参与修复新单轮题再验证",
+  "execution_status": "r15发布准备；C15运行/验证源与完整通过证据一致，提交推送、Git制品校验、正式切换及部署后客户原题复测按发布记录执行。",
+  "previous_change_path": "docs/.staging/single-role-blind-20261013/previous-change.json",
+  "verification_source": "docs/06-测试与验收/单轮设备关联盲测-20261013.md",
+  "release_authorization": "本轮最新用户明确授权C15提交推送和腾讯云正式部署，覆盖前一轮未发布阶段限制；当前release_authorized=true，实际上线及客户原题复测另核验。"
 }

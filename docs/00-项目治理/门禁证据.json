@@ -12,34 +12,122 @@
     {
       "gate": "architecture_confirmed",
       "status": "已确认",
-      "confirmed_by": "用户（诊断及重构建议后明确要求开始重构）",
-      "confirmed_at": "2026-09-23",
-      "confirmation_ref": "本会话：用户开始重构；确认实施范围和工程方案，不代表客户验收通过",
-      "evidence_path": "docs/06-测试与验收/团队第二轮测试架构诊断-20260923.md"
+      "confirmed_by": "用户（本轮已验证POC候选发布范围的合并授权）；工程复核由Codex执行",
+      "confirmed_at": "2026-10-13",
+      "confirmation_ref": "用户最新消息：提交、推送GitHub、部署到腾讯云正式服务，部署后再复测客户那两道原题；继承上一轮单轮优先/复杂多轮暂缓范围，不代表客户正式验收或所有语义缺口关闭。",
+      "evidence_path": "docs/07-部署与运维/r15发布记录-20261013.md"
     },
     {
       "gate": "ai_boundary_confirmed",
       "status": "已确认",
-      "confirmed_by": "用户（诊断及重构建议后明确要求开始重构）",
-      "confirmed_at": "2026-09-23",
-      "confirmation_ref": "本会话：用户开始重构；确认实施范围和工程方案，不代表客户验收通过",
-      "evidence_path": "docs/06-测试与验收/团队第二轮测试架构诊断-20260923.md"
+      "confirmed_by": "用户（本轮已验证POC候选发布范围的合并授权）；工程复核由Codex执行",
+      "confirmed_at": "2026-10-13",
+      "confirmation_ref": "用户最新消息：提交、推送GitHub、部署到腾讯云正式服务，部署后再复测客户那两道原题；继承上一轮单轮优先/复杂多轮暂缓范围，不代表客户正式验收或所有语义缺口关闭。",
+      "evidence_path": "docs/07-部署与运维/r15发布记录-20261013.md"
     },
     {
       "gate": "interaction_baseline_confirmed",
       "status": "已确认",
-      "confirmed_by": "用户",
-      "confirmed_at": "2026-09-24",
-      "confirmation_ref": "本会话明确：复杂查询先展示理解出的对象和条件，用户可修改、确认后再执行——确认可接受；不代表实现已验收",
-      "evidence_path": "docs/03-架构设计/前端交互与组件基线.md"
+      "confirmed_by": "用户（本轮已验证POC候选发布范围的合并授权）；工程复核由Codex执行",
+      "confirmed_at": "2026-10-13",
+      "confirmation_ref": "用户最新消息：提交、推送GitHub、部署到腾讯云正式服务，部署后再复测客户那两道原题；继承上一轮单轮优先/复杂多轮暂缓范围，不代表客户正式验收或所有语义缺口关闭。",
+      "evidence_path": "docs/07-部署与运维/r15发布记录-20261013.md"
     },
     {
       "gate": "regression_boundary_confirmed",
       "status": "已确认",
-      "confirmed_by": "用户（诊断及重构建议后明确要求开始重构）",
-      "confirmed_at": "2026-09-23",
-      "confirmation_ref": "本会话：用户开始重构；确认实施范围和工程方案，不代表客户验收通过",
-      "evidence_path": "docs/06-测试与验收/团队第二轮测试架构诊断-20260923.md"
+      "confirmed_by": "用户（本轮已验证POC候选发布范围的合并授权）；工程复核由Codex执行",
+      "confirmed_at": "2026-10-13",
+      "confirmation_ref": "用户最新消息：提交、推送GitHub、部署到腾讯云正式服务，部署后再复测客户那两道原题；继承上一轮单轮优先/复杂多轮暂缓范围，不代表客户正式验收或所有语义缺口关闭。",
+      "evidence_path": "docs/07-部署与运维/r15发布记录-20261013.md"
+    },
+    {
+      "gate": "execution_profile_confirmed",
+      "status": "已确认",
+      "confirmed_by": "用户（本轮已验证POC候选发布范围的合并授权）；工程复核由Codex执行",
+      "confirmed_at": "2026-10-13",
+      "confirmation_ref": "用户最新消息：提交、推送GitHub、部署到腾讯云正式服务，部署后再复测客户那两道原题；继承上一轮单轮优先/复杂多轮暂缓范围，不代表客户正式验收或所有语义缺口关闭。",
+      "evidence_path": "docs/07-部署与运维/r15发布记录-20261013.md"
+    },
+    {
+      "gate": "product_strategy_confirmed",
+      "status": "已确认",
+      "confirmed_by": "用户（本轮已验证POC候选发布范围的合并授权）；工程复核由Codex执行",
+      "confirmed_at": "2026-10-13",
+      "confirmation_ref": "用户最新消息：提交、推送GitHub、部署到腾讯云正式服务，部署后再复测客户那两道原题；继承上一轮单轮优先/复杂多轮暂缓范围，不代表客户正式验收或所有语义缺口关闭。",
+      "evidence_path": "docs/07-部署与运维/r15发布记录-20261013.md"
+    },
+    {
+      "gate": "requirements_confirmed",
+      "status": "已确认",
+      "confirmed_by": "用户（本轮已验证POC候选发布范围的合并授权）；工程复核由Codex执行",
+      "confirmed_at": "2026-10-13",
+      "confirmation_ref": "用户最新消息：提交、推送GitHub、部署到腾讯云正式服务，部署后再复测客户那两道原题；继承上一轮单轮优先/复杂多轮暂缓范围，不代表客户正式验收或所有语义缺口关闭。",
+      "evidence_path": "docs/07-部署与运维/r15发布记录-20261013.md"
+    },
+    {
+      "gate": "business_design_confirmed",
+      "status": "已确认",
+      "confirmed_by": "用户（本轮已验证POC候选发布范围的合并授权）；工程复核由Codex执行",
+      "confirmed_at": "2026-10-13",
+      "confirmation_ref": "用户最新消息：提交、推送GitHub、部署到腾讯云正式服务，部署后再复测客户那两道原题；继承上一轮单轮优先/复杂多轮暂缓范围，不代表客户正式验收或所有语义缺口关闭。",
+      "evidence_path": "docs/07-部署与运维/r15发布记录-20261013.md"
+    },
+    {
+      "gate": "reuse_assessment_confirmed",
+      "status": "已确认",
+      "confirmed_by": "用户（本轮已验证POC候选发布范围的合并授权）；工程复核由Codex执行",
+      "confirmed_at": "2026-10-13",
+      "confirmation_ref": "用户最新消息：提交、推送GitHub、部署到腾讯云正式服务，部署后再复测客户那两道原题；继承上一轮单轮优先/复杂多轮暂缓范围，不代表客户正式验收或所有语义缺口关闭。",
+      "evidence_path": "docs/07-部署与运维/r15发布记录-20261013.md"
+    },
+    {
+      "gate": "data_design_confirmed",
+      "status": "已确认",
+      "confirmed_by": "用户（本轮已验证POC候选发布范围的合并授权）；工程复核由Codex执行",
+      "confirmed_at": "2026-10-13",
+      "confirmation_ref": "用户最新消息：提交、推送GitHub、部署到腾讯云正式服务，部署后再复测客户那两道原题；继承上一轮单轮优先/复杂多轮暂缓范围，不代表客户正式验收或所有语义缺口关闭。",
+      "evidence_path": "docs/07-部署与运维/r15发布记录-20261013.md"
+    },
+    {
+      "gate": "acceptance_criteria_confirmed",
+      "status": "已确认",
+      "confirmed_by": "用户（本轮已验证POC候选发布范围的合并授权）；工程复核由Codex执行",
+      "confirmed_at": "2026-10-13",
+      "confirmation_ref": "用户最新消息：提交、推送GitHub、部署到腾讯云正式服务，部署后再复测客户那两道原题；继承上一轮单轮优先/复杂多轮暂缓范围，不代表客户正式验收或所有语义缺口关闭。",
+      "evidence_path": "docs/07-部署与运维/r15发布记录-20261013.md"
+    },
+    {
+      "gate": "acceptance_scenarios_confirmed",
+      "status": "已确认",
+      "confirmed_by": "用户（本轮已验证POC候选发布范围的合并授权）；工程复核由Codex执行",
+      "confirmed_at": "2026-10-13",
+      "confirmation_ref": "用户最新消息：提交、推送GitHub、部署到腾讯云正式服务，部署后再复测客户那两道原题；继承上一轮单轮优先/复杂多轮暂缓范围，不代表客户正式验收或所有语义缺口关闭。",
+      "evidence_path": "docs/07-部署与运维/r15发布记录-20261013.md"
+    },
+    {
+      "gate": "vertical_slice_defined",
+      "status": "已确认",
+      "confirmed_by": "用户（本轮已验证POC候选发布范围的合并授权）；工程复核由Codex执行",
+      "confirmed_at": "2026-10-13",
+      "confirmation_ref": "用户最新消息：提交、推送GitHub、部署到腾讯云正式服务，部署后再复测客户那两道原题；继承上一轮单轮优先/复杂多轮暂缓范围，不代表客户正式验收或所有语义缺口关闭。",
+      "evidence_path": "docs/07-部署与运维/r15发布记录-20261013.md"
+    },
+    {
+      "gate": "test_plan_confirmed",
+      "status": "已确认",
+      "confirmed_by": "用户（本轮已验证POC候选发布范围的合并授权）；工程复核由Codex执行",
+      "confirmed_at": "2026-10-13",
+      "confirmation_ref": "用户最新消息：提交、推送GitHub、部署到腾讯云正式服务，部署后再复测客户那两道原题；继承上一轮单轮优先/复杂多轮暂缓范围，不代表客户正式验收或所有语义缺口关闭。",
+      "evidence_path": "docs/07-部署与运维/r15发布记录-20261013.md"
+    },
+    {
+      "gate": "release_authorized",
+      "status": "已确认",
+      "confirmed_by": "用户（本轮已验证POC候选发布范围的合并授权）；工程复核由Codex执行",
+      "confirmed_at": "2026-10-13",
+      "confirmation_ref": "用户最新消息：提交、推送GitHub、部署到腾讯云正式服务，部署后再复测客户那两道原题；继承上一轮单轮优先/复杂多轮暂缓范围，不代表客户正式验收或所有语义缺口关闭。",
+      "evidence_path": "docs/07-部署与运维/r15发布记录-20261013.md"
     }
   ]
 }

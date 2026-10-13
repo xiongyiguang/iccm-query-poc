@@ -8,9 +8,9 @@ from pathlib import Path
 from attributes import CATALOG
 from relational_query import canonical, validate_plan
 
-PROMPT=Path(__file__).resolve().parents[1]/'prompts/system/relational-request-v18.txt'
+PROMPT=Path(__file__).resolve().parents[1]/'prompts/system/relational-request-v20.txt'
 
-INDEPENDENT_PROMPT=PROMPT.with_name('relational-semantic-v14.txt')
+INDEPENDENT_PROMPT=PROMPT.with_name('relational-semantic-v16.txt')
 ENTRY_TRACE=threading.local()
 
 def required_relation(question,context):
@@ -29,6 +29,21 @@ def required_relation(question,context):
         return bool(__import__('re').search(r'原行|原记录|明细|分组|分布|限定|来源|源系统|现场部件|现场设备|父记录|分类|报警',question))
     return False
 
+
+def literal_relation_inputs(question,store):
+    """程序证明本轮明确对象域和精确身份；跨树歧义不作为强制输入。"""
+    if store is None:return []
+    from request_checklist import literal_references
+    from relational_state import exact_literal
+    proven=[]
+    for ref in literal_references(question,store):
+        if ref.get('domain') not in ('pbs','config','equipment_class','part_class','points'):continue
+        try:root=exact_literal(ref['domain'],'identity',ref['value'],question,question,{},store)
+        except ValueError:continue
+        if root not in proven:proven.append(root)
+    return proven
+
+
 def normalized(value):
     if not isinstance(value,dict) or type(value.get('handled')) is not bool:raise ValueError('关系语义路由格式无效。')
     if value['handled'] is False:
@@ -45,7 +60,7 @@ def extract(question,context,key,model,record,_repair=False,_independent=False,_
     # 恰好包含该标识；模型输出仍须经过同一个严格状态编译器。
     body={'model':model,'messages':[{'role':'system','content':'仅输出 JSON 对象。\n'+(INDEPENDENT_PROMPT if _independent else PROMPT).read_text()+'\n字段目录：'+json.dumps(CATALOG,ensure_ascii=False)},
         {'role':'user','content':json.dumps({'question':question,'previous':context.get('relational_state'),
-            'registered_entry':{'required':bool(context.get('relational_required')),'scope':'程序已登记的只读图关联能力'},
+            'registered_entry':{'required':bool(context.get('relational_required')),'scope':'程序已登记的只读图关联能力','reference_capabilities':context.get('relational_reference_capabilities',[])},
             'condition_catalog':__import__('relational_state').condition_catalog(context),
             'old_context':{k:context[k] for k in ('entity','query','scope','operation','branches') if k in context},
             'executed_history':context.get('relational_history',[]),
@@ -80,7 +95,19 @@ def extract(question,context,key,model,record,_repair=False,_independent=False,_
         return answer
     except RelationalHandoff as error:
         record['programmatic_handoff']=str(error)
-        return {'handled':False}
+        if not context.get('relational_required') or not context.get('relational_bound_inputs'):
+            return {'handled':False}
+        # 明确输入已经由实际原表证明，条件遗漏不能交旧入口变成无条件查询。
+        # 修复抽取仍独立；只传校验原因，不传另一模型计划或数量答案。
+        reason=str(error)+' 本轮已明确且由实际数据核实的输入不得通过交回旧入口丢失。'
+        record['protected_inputs']=copy.deepcopy(context['relational_bound_inputs'])
+        if not _repair:
+            first=copy.deepcopy(record);record.clear()
+            result=extract(question,{**context,'relational_schema_error':reason},key,model,record,True,_independent,_store)
+            record['schema_repair']={'original':first,'error':reason}
+            return result
+        failure=ValueError(reason);failure.extraction_trace={'schema_failure':copy.deepcopy(record)}
+        raise failure from error
     except ValueError as error:
         if not _repair:
             first=copy.deepcopy(record);record.clear()
@@ -156,7 +183,7 @@ def bound_semantics(value,store):
             codes={r['code'] for r in store.rows('SELECT code FROM objects WHERE tree=? AND (code=? OR name=?)',[tree,literal,literal])}
             if len(codes)==1:q['classes'][tree]=next(iter(codes))
         root=q['root']
-        if q['kind']=='collection' and root and root['tree'] in ('equipment_class','part_class') and q['population'] in ('devices','parts','points'):
+        if q['kind']=='collection' and root and root['tree'] in ('equipment_class','part_class') and q['population'] in ('devices','parts','points') and q.get('target_tree')!='config':
             tree,literal=root['tree'],root['value']
             if tree in q['classes'] and q['classes'][tree]!=literal:raise ValueError('实际分类锚与分类条件不一致，未替换范围。')
             q['classes']={**q['classes'],tree:literal};q['root']=None;q['depth']='all'
@@ -223,6 +250,31 @@ def remember_context(previous,current,question):
     return current
 
 
+def data_prerequisite(question,context,store):
+    # 单轮现场反查的唯一字典身份若无法核实，先阻止数量计算。
+    # 这是数据前提检查，不让两个模型把资料冲突拆成旧单表查询。
+    from request_checklist import literal_references
+    refs=literal_references(question,store)
+    class_refs=[x for x in refs if x.get('domain')=='equipment_class']
+    import re
+    if not context.get('relational_state') and required_relation(question,context) and re.search(r'现场(?:设备|部件)',question) and not re.search(r'分别|同时|另查|另外|第[一二三四1-4]项',question):
+        identities={r['code'] for ref in class_refs for r in store.rows('SELECT code FROM objects WHERE tree=? AND (code=? OR name=?)',['equipment_class',ref['value'],ref['value']])}
+        all_values={x['value'] for x in refs}
+        if len(identities)==1 and all_values<={*identities,*(ref['value'] for ref in class_refs)}:
+            code=next(iter(identities))
+            from relational_state import exact_literal
+            try:exact_literal('equipment_class','code',code,question,question,context,store)
+            except ValueError:return None
+            from relational_query import Graph,NodeRoleUnknown
+            try:Graph(store).classify({'equipment_class':code})
+            except NodeRoleUnknown as error:
+                spec=canonical({'root':{'tree':'equipment_class','field':'code','value':code},'kind':'collection','population':'parts' if '现场部件' in question else 'devices'})
+                plan=validate_plan({'operation':'relational','entity':None,'scope':'direct','clarification':'','relational_tasks':[{'id':1,'spec':spec}]})
+                return plan,{'engine':'relational_request','source_question':question,'stage':'programmatic_data_prerequisite','role_verified':False,'count_computed':False,'reason':str(error),'validated_intent':copy.deepcopy(plan)}
+
+    return None
+
+
 def interpret(question,context,key,store=None):
     from model import MODEL
     context=copy.deepcopy(context)
@@ -233,6 +285,12 @@ def interpret(question,context,key,store=None):
         # 当前原话完整引用的跨树命中一并交给独立提取，不用旧根
         # 代替新编码，也不把候选计划当作目录依据。
         context['relational_literal_references']=literal_references(question,store)
+        context['relational_bound_inputs']=literal_relation_inputs(question,store) if context['relational_required'] else []
+        guarded=data_prerequisite(question,context,store)
+        if guarded:return guarded
+        if context['relational_required']:
+            from relational_capabilities import reference_capabilities
+            context['relational_reference_capabilities']=reference_capabilities(store,context['relational_literal_references'])
         context['relational_condition_values']={field:[r['value'] for r in store.rows('SELECT DISTINCT '+column+' AS value FROM points WHERE '+column+"!='' ORDER BY "+column)] for field,column in [('source','system'),('switch','switch'),('status','status')]}
     if not context.get('relational_state') and (context.get('business_request') or context.get('pending_business_request')) and not context['relational_required'] and __import__('re').search(r'取消|撤销|撤掉|保留|仍|再限定|只看|这些|其余',question):
         ENTRY_TRACE.value={'reason':'existing_business_owner','basis':'实际普通查询任务持有旧条件；未引入新的图关联目标，本轮续改由该任务状态机处理'}
@@ -241,6 +299,11 @@ def interpret(question,context,key,store=None):
     if not candidate['handled']:
         ENTRY_TRACE.value={'reason':'main_not_handled','candidate':copy.deepcopy(candidate_trace)}
         return None
+    # 没有实际对象域的全局对象统计交原澄清入口，不能默认成PBS。
+    if not context['relational_required'] and not context.get('entity') and not context.get('query') and not context.get('relational_state'):
+        if any(t['spec']['kind']=='collection' and t['spec']['population']=='objects' and t['spec']['root'] is None and not t['spec']['classes'] for t in candidate['tasks']) and not __import__('re').search(r'PBS|现场|功能位置',question,__import__('re').I):
+            ENTRY_TRACE.value={'reason':'object_domain_not_grounded','candidate':copy.deepcopy(candidate_trace)}
+            return None
     # 单个精确测点的原字段投影交回既有属性入口，含关联查询后的追问。
     # 仅覆盖没有分类、筛选、分组或显示限制的标量投影；原入口仍独立核验。
     if len(candidate['tasks'])==1:
@@ -302,6 +365,12 @@ def interpret(question,context,key,store=None):
 def bind(store,question,plan,context,trace):
     from request_gateway import seal
     if trace.get('engine')!='relational_request' or trace.get('source_question')!=question or trace.get('validated_intent')!=plan:raise ValueError('关系计划在独立核验后改变，未执行。')
+    if trace.get('stage')=='programmatic_data_prerequisite':
+        guarded=data_prerequisite(question,context or {},store)
+        if not guarded or guarded[0]!=plan:raise ValueError('资料前提证据或原身份已变化，未执行。')
+        validate_plan(plan);seal(store,question,plan)
+        trace['gateway']={'status':'verified','entry':'programmatic_data_prerequisite','count_computed':False,'data_rechecked':True}
+        return plan
     from relational_state import compile_delta
     def compiled(raw):
         if raw.get('version')==2:

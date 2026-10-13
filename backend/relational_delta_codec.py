@@ -198,6 +198,8 @@ def normalize_delta(raw,question,context,store=None):
         for source in (item,item.get('set',{})):
             if isinstance(source,dict):
                 for key in ('root','compare_root'):
+                    if value.get('mode')=='update' and item.get('id') in old and key in source and source[key] is None and before.get(key) is None:
+                        source.pop(key);audit.append('实际旧根已为空，重复null与省略字段等价，不改变范围:'+key);continue
                     if key=='compare_root' and key in source and source[key] is None and (value.get('mode')=='new' or before.get(key) is None):
                         source.pop(key);audit.append('空的非比较副根就是省略字段，不清除实际旧比较对象');continue
                     ref=source.get(key)
@@ -252,6 +254,27 @@ def normalize_delta(raw,question,context,store=None):
     for p in value.get('tasks',[]):
         if not isinstance(p,dict) or p.get('action')=='retain':continue
         before=(old.get(p.get('id')) or {}).get('spec',{});fields=p.setdefault('set',{})
+        if value.get('mode')=='update':
+            for key in ('root','compare_root'):
+                if key in p and p[key] is None and before.get(key) is None:
+                    p.pop(key);audit.append('实际旧根已为空，忽略不改变范围的重复null:'+key)
+        if value.get('mode')=='new' and isinstance(p.get('root'),dict) and p['root'].get('type')=='global':
+            cls=[e for e in p.get('classes',[]) if isinstance(e,dict) and e.get('action')=='set' and e.get('tree')=='equipment_class' and isinstance(e.get('reference'),dict) and e['reference'].get('type')=='literal']
+            if len(cls)==1:
+                source=cls[0]['reference'];config_root=None
+                if store is not None:
+                    from relational_state import exact_literal
+                    try:
+                        config_root=exact_literal('config',source.get('field'),source.get('value'),p.get('quote',''),question,context,store)
+                        found=store.rows('SELECT level FROM objects WHERE tree=? AND (code=? OR name=?)',['config',config_root['value'],config_root['value']])
+                        from relational_query import CLASS_LEVELS
+                        if len(found)!=1 or found[0]['level'] not in CLASS_LEVELS|{'设备'}:config_root=None
+                    except ValueError:config_root=None
+                if config_root:
+                    p['root']={'type':'literal',**config_root,'quote':p['quote']};p['classes'].remove(cls[0]);fields['target_tree']='pbs'
+                    audit.append('当前实际构型身份误放字典槽位时恢复原构型根和现场目标；不换成同码字典，也不删除其他条件')
+                else:
+                    p['root']=copy.deepcopy(source);audit.append('分类反查使用同一有来源的字典锚，程序绑定全表分类集合，不以省略全表字样丢失范围')
         if not isinstance(fields,dict):continue
         if value.get('mode')=='update' and re.fullmatch(r'\s*设备类(?:表|字典)?(?:呢)?[？?。]?\s*',question):
             records=(old.get(p.get('id')) or {}).get('resolved',{}).get('equipment_class',[])
@@ -266,6 +289,10 @@ def normalize_delta(raw,question,context,store=None):
                 if key in p and p[key] not in ([],{}) and p[key]!=nested:raise ValueError('变更字段在set内外重复且不一致。')
                 p[key]=nested;audit.append('同一已登记字段移到动作层:'+key)
         for key in ('filters','classes'):
+            edits=p.get(key)
+            actions={'add','remove','replace'} if key=='filters' else {'set','remove'}
+            if isinstance(edits,dict) and edits and set(edits)<=actions and all(isinstance(v,dict) and v.get('action')==k for k,v in edits.items()):
+                p[key]=list(edits.values());audit.append('已登记动作包装转有序变更列表，内层字段与来源仍由严格编译器检查:'+key)
             if key not in p:p[key]=[];audit.append('省略空变更保持旧值:'+key)
             if p[key]=={}:p[key]=[];audit.append('空变更对象与空列表等价:'+key)
         if isinstance(p.get('classes'),dict) and p['classes'].get('action') in ('set','remove'):
@@ -332,6 +359,19 @@ def normalize_delta(raw,question,context,store=None):
                         candidates=[t for t in hist[index]['state'].get('tasks',[]) if ids and ids==identity(store,t['spec'].get(key))]
                         if len(candidates)==1:
                             p[key]={'type':'role','task':candidates[0]['id'],'history':index,'role':'root','quote':qt};audit.append('明确历史序号按真实根引用，不接受自由旧标识')
+        if value.get('mode')=='update' and before.get('classes'):
+            from relational_state import reference
+            replaced=False
+            if before.get('population')=='devices' and before.get('root') is None and p.get('root'):
+                try:
+                    actual=reference(p['root'],question,context,store)
+                    ids=identity(store,actual)
+                    replaced=len(ids)==1 and next(iter(ids))[0]=='pbs'
+                except ValueError:pass
+            inferred=class_removal_sources(p.get('quote',''),before['classes'],replaced)
+            for tree,source in inferred.items():
+                if not any(isinstance(e,dict) and e.get('tree')==tree for e in p['classes']):
+                    p['classes'].append({'action':'remove','tree':tree,'quote':source});audit.append('本轮明确分类撤销从实际旧条件编译，不依赖模型是否抄出remove:'+tree)
         if isinstance(p.get('classes'),list):
             edits=[]
             for edit in p['classes']:
@@ -373,6 +413,28 @@ def normalize_delta(raw,question,context,store=None):
         if fields.get('group_by')=='level' and pop!='points' and (root is None or root_tree=='pbs' or isinstance(root,dict) and root.get('type')=='global'):
             fields['group_by']='type';audit.append('PBS原层级与对象类型同一原字段；只在该原表归一level/type，不将构型数字层级当类型')
         qt=p.get('quote','') if isinstance(p.get('quote'),str) else ''
+        if value.get('mode')=='new' and kind=='collection' and root_tree=='equipment_class':
+            goal=qt
+            if store is not None and isinstance(root,dict) and root.get('type')=='literal':
+                for row in store.rows('SELECT code,name FROM objects WHERE tree=? AND (code=? OR name=?)',['equipment_class',root.get('value'),root.get('value')]):
+                    for literal in sorted(row.values(),key=len,reverse=True):
+                        if literal:goal=goal.replace(literal,' ')
+            goal=re.sub(r'(?:不要|无需|不看|不统计|不包括|不计入|不把|不能把)[^，。；;！？!?]*','',goal)
+            template=bool(re.search(r'设备构型|构型设备|构型部件',goal))
+            site=bool(re.search(r'现场设备|现场部件',goal))
+            if template and not site:
+                fields['target_tree']='config';audit.append('分类输入之外的明确构型集合目标登记为config；未指定现场目标不能默认PBS')
+
+        if value.get('mode')=='new' and fields.get('target_tree')=='config' and isinstance(p.get('root'),dict) and p['root'].get('type')=='literal' and p['root'].get('tree')=='equipment_class' and not re.search(r'筛选|过滤|限定|条件',qt):
+            anchor=identity(store,p['root'])
+            if len(anchor)==1:
+                kept=[]
+                for edit in p.get('classes',[]):
+                    if isinstance(edit,dict) and edit.get('action')=='set' and edit.get('tree')=='equipment_class' and identity(store,edit.get('reference'))==anchor:
+                        audit.append('原字典身份作为构型遍历起点，不追加未要求的现场分类筛选')
+                    else:kept.append(edit)
+                p['classes']=kept
+
         if value.get('mode')=='new' and kind=='collection' and pop!='points' and not fields.get('group_by') and re.search(r'(?:列|给|展示|读取)[^，。；;]{0,30}父(?:对象)?(?:编码|代码)',qt) and not re.search(r'(?:不|不要|无需|不用|不必)[^，。；;]{0,6}(?:列|给|展示|读取)[^，。；;]{0,30}父(?:对象)?(?:编码|代码)',qt) and isinstance(fields.get('properties',[]),list):
             fields['properties']=sorted(set(fields.get('properties',[])+['parent']));audit.append('当前明确逐行父编码列由登记字段契约补全，保持实际集合和其他投影')
         # PBS的原层级就是对象类型；明确逐层计数时，不接受模型换成分类字典分组。
@@ -398,6 +460,16 @@ def normalize_delta(raw,question,context,store=None):
             fields['only']=None;audit.append('完整分布中的缺失单列属于固定分组交付，不等于只筛缺失记录')
         if fields.get('only',before.get('only'))=='missing_class' and isinstance(fields.get('properties'),list):
             fields['properties']=[k for k in fields['properties'] if k not in ('missing_reason','classification_reason')];audit.append('缺失关联原因是登记的固定交付列，不作为客户原字段重复投影')
+        group_missing={'location':'unmatched','class':'missing_class'}.get(before.get('group_by'))
+        subset=re.search(r'从[^，。；;]{0,32}(?:未关联|未匹配|缺失)[^，。；;]{0,10}(?:记录|部件|明细)(?:中|里)',qt)
+        different_field=re.search(r'(?:缺失|缺少|未匹配|未关联)[^，。；;]{0,16}(?:分类|部件类)|(?:分类|部件类)[^，。；;]{0,16}(?:缺失|缺少|未匹配|未关联)',qt) if group_missing=='unmatched' else re.search(r'(?:功能位置|位置归属)[^，。；;]{0,16}(?:缺失|未匹配|未关联)',qt)
+        if value.get('mode')=='update' and group_missing and subset and not different_field:
+            fields['only']=group_missing;fields['group_by']=None;audit.append('从实际已执行缺失分组取记录，使用同一分组关联字段的谓词，不重新解释泛称未关联')
+        if value.get('mode')=='update' and before.get('only') and fields.get('only') in ('missing_class','unmatched') and fields['only']!=before['only']:
+            field_words={'missing_class':'分类|部件类','unmatched':'功能位置|位置归属|归属位置'}
+            requested=field_words[fields['only']]
+            explicit=re.search(r'(?:缺失|缺少|未匹配|未关联|没有|未提供)[^，。；;]{0,16}(?:'+requested+r')|(?:'+requested+r')[^，。；;]{0,16}(?:缺失|缺少|未匹配|未关联|没有|未提供)',qt)
+            if not explicit:fields.pop('only');audit.append('关联缺失类型未明确改动，保留实际旧记录谓词，不因泛称未关联改换范围')
         if value.get('mode')=='update' and before.get('only') and fields.get('only','absent') is None and kind!='boundary':
             cancel=re.search(r'(?:撤掉|撤销|取消|解除|不再)[^，。；;]{0,40}(?:未匹配|未关联|缺失|只看)|恢复(?:完整|全部)(?:范围|集合|记录)',qt)
             if not cancel and not full_groups:
@@ -425,6 +497,7 @@ def normalize_delta(raw,question,context,store=None):
         group=fields.get('group_by');group_words={'class':r'部件类|类别|分类','type':r'类型|层级','source':r'来源|源系统','location':r'功能位置|归属位置'}
         grouping=re.search(r'分组|分布|统计|汇总|分别.*多少|各.*数量',qt)
         view_change=re.search(r'明细|逐行|逐条|取消.*分组|不再.*分组|只列|仅列|列出.*(?:编码|名称)|具体.*哪些.*(?:部件|设备|原记录)|(?:原记录|原行|原文件行号|CSV行号).*(?:排序|升序|降序)|(?:编码|名称).*(?:排序|升序|降序)',qt)
+        if subset and group_missing:view_change=True
         if group in group_words and not (grouping and (re.search(group_words[group],qt) or group==before.get('group_by') and re.search(r'原分组|分组.*(?:保持|不变)|保留.*分组',qt))):
             if value.get('mode')=='new' or view_change:fields['group_by']=None
             else:fields.pop('group_by')
@@ -442,6 +515,18 @@ def normalize_delta(raw,question,context,store=None):
         row_order=re.search(r'逐行|原行|原记录|明细|CSV行号',qt) and re.search(r'排序|升序|排列',qt)
         if row_order and not aggregates and fields.get('group_by') not in (None,'keep'):
             fields['group_by']=None;audit.append('明确原行排序不产生分组目标')
+        if fields.get('target_tree')=='config' and root_tree=='equipment_class' and pop=='objects' and not re.search(r'全部对象|所有对象|构型对象|其他类型|子设备|部件',qt):
+            requested={name for name,terms in {'devices':('设备构型','设备类型节点'),'parts':('构型部件',)}.items() if any(word in qt for word in terms)}
+            if len(requested)==1:
+                pop=next(iter(requested));fields['population']=pop;audit.append('构型输出域按当前明确对象类型约束集合，不能把所有类型节点混入')
+        class_count=bool(re.search(r'类别数|类别总数|部件类(?:别)?数量|不同部件类(?:别)?(?:数量|数)|部件有多少类|部件有几类|部件类有多少',qt))
+        full_rows=bool(re.search(r'列全|完整[^，。；;]{0,16}编码|列出全部|全部[^，。；;]{0,12}编码|编码[^，。；;]{0,10}全部|全量[^，。；;]{0,16}清单|明细|逐条',qt))
+        explicit_distribution=bool(re.search(r'分组|分布|每类|各类|各个类别|按部件类|按类别',qt))
+        if pop=='parts' and class_count and not explicit_distribution:
+            if full_rows:
+                fields['group_by']=None;audit.append('类别总数为固定指标；完整编码请求交付原对象明细，不替换为分类分组')
+            elif not re.search(r'不(?:要|用|需|再).*?(?:分组|分布)|只(?:给|要|看).*?(?:总数|数量)',qt):
+                fields['group_by']='class';audit.append('只请求总数与不同类别数量且未指定记录明细时，沿既有分类统计口径交付完整分组；总数仍按全范围')
         collective=bool(re.search(r'下级|后代|反查|范围|全表|直属|下一层|(?:全部|所有|全)层级|直接(?:部件|设备|对象|子)|全部(?:现场|部件|设备)|所有(?:现场|部件|设备)',qt))
         record_delivery=bool(re.search(r'原行|原记录|逐行|逐条|CSV行号|原文件行号|明细',qt))
         if kind=='relation' and pop=='points' and (record_delivery or collective or fields.get('group_by') or any(x.get('action') in ('add','replace') for x in p.get('filters',[]) if isinstance(x,dict)) or fields.get('limit')):
@@ -449,6 +534,17 @@ def normalize_delta(raw,question,context,store=None):
         if kind=='relation' and (fields.get('group_by') not in (None,'keep') or pop in ('objects','parts','devices') and collective or root and root.get('type')=='global'):
             fields['kind']='collection';kind='collection';audit.append('集合目标/分组明确使用collection，深度仍保留')
         if kind=='relation':
+            if store is not None and isinstance(p.get('root'),dict) and p['root'].get('type')=='literal' and p['root'].get('tree')=='pbs':
+                ref=p['root']
+                from relational_state import exact_literal
+                try:
+                    proved=exact_literal('points',ref['field'],ref['value'],qt,question,context,store)
+                    # 已明确要求PBS原表/另一个同码对象仍归原表，不把两次引用合并。
+                    from identifier_aliases import complete_literal_pattern
+                    if len(list(re.finditer(complete_literal_pattern(ref['value']),qt)))==1:
+                        p['root']={'type':'literal',**proved,'quote':qt};audit.append('本轮明确测点输入保留原监测表，精确PBS及父边由同一关系回执交付')
+                except ValueError:pass
+            if fields.get('target_tree') in (None,'pbs','config','equipment_class','part_class','points'):fields.pop('target_tree',None);audit.append('单对象关系固定交付全部角色，不保留集合输出树')
             fields.pop('depth',None);audit.append('单对象关系不依赖集合深度')
             fields['population']='objects'
             if isinstance(fields.get('properties'),list):
@@ -465,6 +561,10 @@ def normalize_delta(raw,question,context,store=None):
                 fields['properties']=properties
                 audit.append('登记关联角色始终由关系视图交付，不重复当原字段投影')
         elif root_tree=='points' and 'depth' in fields:fields.pop('depth');audit.append('精确测点原行固定self由编译器确定')
+        elif value.get('mode')=='new' and fields.get('depth') in ('self','direct'):
+            markers={'self':('自身','本身','本对象'),'direct':('直属','直接下级','直接部件','直接设备','直接对象','下一层','直接子')}
+            if not any(w in qt for w in markers[fields['depth']]):
+                fields.pop('depth');audit.append('未请求缩小层级的新集合使用程序默认全部下级，不接受模型自行添加直属/自身')
         elif value.get('mode')=='new' and fields.get('depth')=='all':fields.pop('depth');audit.append('新集合默认完整深度无需重复来源词')
         gb=fields.get('group_by',before.get('group_by'))
         if gb=='keep':gb=before.get('group_by')

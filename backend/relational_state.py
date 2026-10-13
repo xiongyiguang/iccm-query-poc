@@ -8,7 +8,7 @@ from business_request import require_keys
 from request_checklist import literal_references
 
 OUTPUT={'kind','population','group_by','properties','limit','sort','only','boundary'}
-SET_FIELDS=OUTPUT|{'depth'}
+SET_FIELDS=OUTPUT|{'depth','target_tree'}
 DEFAULT_OUTPUT={'group_by':None,'properties':[],'limit':None,'sort':[],'only':None,'boundary':None}
 TREE_HINTS={'pbs':('PBS','现场','功能位置'),'config':('构型','模板'),'equipment_class':('设备类',),'part_class':('部件类',),'points':('测点','监测','测量点','点位')}
 
@@ -85,7 +85,7 @@ def reference(ref,question,context,store):
         return exact_literal(ref['tree'],ref['field'],ref['value'],text,question,context,store)
     if kind=='global':
         require_keys(ref,{'type','quote'},'global')
-        if not re.search(r'全表|全监测|全量|(?:全部|所有)(?:PBS|构型树)?(?:现场|设备|部件|监测|数据)|全局|PBS(?:各|所有|全部)(?:层级|类型)|(?:^|[，。；;\s]|查|查询|读取)(?:整个(?:PBS|构型|监测)(?:原)?表|监测原表)',text):
+        if not re.search(r'全PBS|整个PBS|全表|全监测|全量|(?:全部|所有)(?:PBS|构型树)?(?:现场|设备|部件|监测|数据)|全局|PBS(?:各|所有|全部)(?:层级|类型)|(?:^|[，。；;\s]|查|查询|读取)(?:整个(?:PBS|构型|监测)(?:原)?表|监测原表)',text):
             raise ValueError('清除根范围必须有本轮全表目标依据。')
         return None
     if kind not in ('role','class'):raise ValueError('未知实际身份引用类型。')
@@ -276,6 +276,12 @@ def compile_delta(payload,question,context,store=None):
             if d in ('self','direct') and re.search(r'全部(?:后代|下级)|所有(?:后代|下级)|自身及全部后代',text):raise ValueError('不能把完整后代范围缩成自身或直属。')
         for key in ('root','compare_root'):
             if key in p:q[key]=reference(p[key],question,context,store)
+        if 'target_tree' in fields and fields['target_tree'] not in (None,'keep'):
+            target=fields['target_tree'];base=(q['root'] or {}).get('tree','pbs')
+            if base in ('equipment_class','part_class') and q['population'] in ('devices','parts','points'):base='pbs'
+            unchanged=mode=='update' and target==before.get('target_tree')
+            words={'pbs':('现场','PBS'),'config':('构型','模板')}
+            if target not in words or target!=base and not unchanged and not any(w.lower() in text.lower() for w in words[target]):raise ValueError('集合输出树没有本轮目标原话依据。')
         apply_classes(q,p['classes'],question,context,store);apply_filters(q,p['filters'],question)
         tasks[tid]={'id':tid,'spec':canonical(q)};changed.append(tid)
         audit.append({'id':tid,'source_quote':text,'set_fields':sorted(fields),'root_changed':'root' in p,'filter_actions':copy.deepcopy(p['filters']),'class_actions':copy.deepcopy(p['classes'])})

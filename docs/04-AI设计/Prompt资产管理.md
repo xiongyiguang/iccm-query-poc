@@ -7,11 +7,13 @@
 |prompts/system/query-intent-v33.txt及v32.schema.json|普通语义路由与请求协议|backend/model.py|
 |prompts/system/context-scope-v28.txt|普通上下文与主体边界|backend/model.py|
 |prompts/system/request-checklist-v26.txt|独立完整条件提取|backend/request_checklist.py|
-|prompts/system/relational-request-v18.txt|受限关系候选语义抽取|backend/relational_planner.py|
-|prompts/system/relational-semantic-v14.txt|不读候选的完整关系清单抽取|backend/relational_planner.py|
+|prompts/system/relational-request-v20.txt|受限关系候选语义抽取、登记集合输出域和实际引用能力|backend/relational_planner.py|
+|prompts/system/relational-semantic-v16.txt|不读候选的完整关系清单抽取、相同接口与实际目录|backend/relational_planner.py|
 |agent_demo/knowledge.txt（V14）|Agent初始化业务知识|agent_demo/runtime.py|
 |agent_demo/query-guide.txt（V11）|Agent查询工具与口径|agent_demo/tools.py|
 |agent_demo/completion-check.txt（V4）|缺完成目标回执时的一次补查|agent_demo/server.py|
+
+2026-10-13本轮最终源码为关系v20/独立v16，普通V33/V28/V26及Agent资产未改。v19/v15及更早版本保留；本轮Prompt登记独立输入/输出域和程序查证的引用能力，不含客户测试编码或数量答案。C14回执域修正、C15条件遗漏回退保护均由程序实现，未再追加Prompt。51道新增单轮、旧/新48及历史117在同一腾讯云C15隔离候选通过，末2题为源码冻结后首次未见实测；历次失败及复杂多轮限制保留，详细依据见[单轮设备关联盲测](../06-测试与验收/单轮设备关联盲测-20261013.md)。这是当前未提交源码登记，正式r14仍使用关系v18/v14，未推送或切换正式服务，不能把源码入口登记当作线上更新。
 
 版本由当前调用代码与专项记录核验，不凭目录中最高文件名推断运行入口。旧版本保留以支持追溯和回退；第三轮修复新增结果目标、日期类型、可核验引用及补答规则；主Flash与独立Pro配置不变。2026-10-09已发布r13版本为V33/V28/V26，关系V8/独立关系V3，旧版完整保留。V33仅补测点上下文与原字段入口兼容；V26补完整清单字段及新主体身份优先，关系契约与旧语义路径分别核验。公开交接副本及腾讯云版本按已发布记录读取，2026-10-12云端验证因访问超时中断，现采用变更V2程序编译候选，云端已恢复并串行验证，不把本地文件最高版本当作已部署事实；Agent当前独立本机V12.1；原交接副本V4不变。具体输入输出、并行清单和兼容边界见模型与评测设计、Agent工作流设计。
 

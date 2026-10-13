@@ -18,7 +18,7 @@ class NodeRoleUnknown(QueryError):
     def __init__(self,message,node,config=None):
         super().__init__(message);self.node=node;self.config=config
 DEFAULTS={'root':None,'kind':'relation','population':'objects','depth':'all','classes':{},'filters':[],
-          'group_by':None,'properties':[],'limit':None,'sort':[],'only':None,'boundary':None,'compare_root':None}
+          'group_by':None,'properties':[],'limit':None,'sort':[],'only':None,'boundary':None,'compare_root':None,'target_tree':None}
 
 def canonical_condition(condition):
     """数值谓词使用无损数学值；字符串身份与原数据值保持原样。"""
@@ -41,6 +41,11 @@ def canonical(spec):
         q['kind']='collection'
     # 分类锚到现场集合的转换必须在实际查表绑定后执行；
     # 此处不能把不同字面名称/编码未经身份核对就判为冲突。
+    if q['target_tree'] not in (None,'pbs','config'):raise ValueError('集合目标树无效。')
+    if q['target_tree'] is not None and q['kind']!='collection':raise ValueError('集合目标树只用于collection。')
+    if q['target_tree']=='config' and (q['root'] or {}).get('tree') not in ('config','equipment_class'):raise ValueError('构型输出需实际构型或设备类根。')
+    if q['target_tree']=='pbs' and (q['root'] or {}).get('tree') not in ('config','equipment_class','part_class','pbs',None):raise ValueError('现场输出需结构或分类根。')
+    if q['kind']=='collection' and q['target_tree']==(q['root'] or {}).get('tree','pbs'):q['target_tree']=None
     if q['kind'] not in ('relation','collection','compare','boundary'):raise ValueError('未知关系操作。')
     if q['population'] not in ('objects','parts','devices','points') or q['depth'] not in ('self','direct','all'):raise ValueError('集合粒度无效。')
     for key in ('root','compare_root'):
@@ -83,7 +88,7 @@ def canonical(spec):
         q.update(population='objects',depth='all')
     elif q['kind'] in ('collection','compare','boundary'):
         if q['group_by']=='type' and q['population'] in ('parts','devices'):q['group_by']=None
-        base={'code','name'}|({'source','line','status','pbs_part','location'} if q['population']=='points' else set())
+        base={'code','name'}|({'location'} if q['population']=='devices' and (q['target_tree'] or (q['root'] or {}).get('tree','pbs'))=='pbs' else set())|({'source','line','status','pbs_part','location'} if q['population']=='points' else set())
         if q['kind']=='collection' and q['population']=='parts' and q['group_by'] is None and (q['root'] or {}).get('tree','pbs')=='pbs':
             # 实际PBS部件明细中的最近现场部件就是该原对象自身；
             # 基础完整编码已经交付，构型部件及分组视图不能套用此等价。
@@ -148,6 +153,9 @@ class Graph:
     def config(self,row):
         if not row:return None
         if row['tree']=='config':return row
+        if row['tree']=='equipment_class':
+            self.classify({'equipment_class':row['code']})
+            return self.objects.get(('config',row['code']))
         if row['tree']!='pbs' or row['level'] not in ('设备','子设备','部件') or '&' not in row['code']:return None
         c=self.objects.get(('config',row['code'].split('&',1)[1]))
         return c if c and c['level']==row['level'] else None
@@ -161,18 +169,22 @@ class Graph:
         key=(row.get('tree','points'),row.get('code'),row.get('line'))
         if key in self.link_cache:return self.link_cache[key]
         pbs=row if row.get('tree')=='pbs' else self.objects.get(('pbs',row['code'])) if row.get('tree','points')=='points' else None
-        chain=self.chain(pbs);own=self.chain(row) if row.get('tree')=='config' else []
+        chain=self.chain(pbs)
+        try:counterpart=self.config(row) if row.get('tree')=='equipment_class' else None;role_reason=''
+        except NodeRoleUnknown as error:counterpart=None;role_reason=str(error)
+        own=self.chain(counterpart or row) if row.get('tree')=='config' or counterpart else []
         part=next((r for r in chain+own if r['level']=='部件'),None)
         device=next((r for r in chain+own if r['level']=='设备'),None)
         structural=next((r for r in chain if r['level'] in ('设备','子设备','部件')),None)
-        config=self.config(structural) if pbs else self.config(row)
+        config=self.config(structural) if pbs else counterpart if row.get('tree')=='equipment_class' else self.config(row)
         dc=self.config(device);pc=self.config(part)
         out={'subject':row,'pbs':pbs,'pbs_parent':self.objects.get(('pbs',pbs['parent'])) if pbs else None,
              'pbs_part':part if part and part['tree']=='pbs' else None,'pbs_device':device if device and device['tree']=='pbs' else None,
              'config':config,'equipment_config':dc,
-             'equipment_class':self.objects.get(('equipment_class',row['code'])) if row.get('tree')=='config' and row.get('level') in CLASS_LEVELS else self.equipment_category(dc),
+             'equipment_class':self.objects.get(('equipment_class',row['code'])) if row.get('tree')=='config' and row.get('level') in CLASS_LEVELS else row if counterpart and counterpart['level'] in CLASS_LEVELS else self.equipment_category(dc),
              'part_class':self.objects.get(('part_class',pc['class_code'])) if pc and pc['class_code'] else None,
              'parent':self.objects.get((row['tree'],row['parent'])) if row.get('tree') in TREES-{'points'} else None}
+        out['role_reason']=role_reason
         out['location']=next((r for r in chain if r['level']=='功能位置'),None)
         if part:
             out['classification_reason']=('缺少精确构型记录或对象类型不一致' if not pc else '所属部件类字段未提供' if not pc['class_code'] else '分类字典缺少引用编码' if not out['part_class'] else '')
@@ -263,7 +275,20 @@ class Graph:
                 rows=[r for r in rows if r['code'] in codes]
         else:
             if isinstance(root,list):raise QueryError('监测记录不能作为结构集合根。')
-            rows=self.desc(root,q['depth']) if root else [r for r in self.objects.values() if r['tree']=='pbs']
+            target=q['target_tree']
+            if root and root['tree']=='equipment_class' and target=='config':
+                counterpart=self.config(root)
+                rows=self.desc(counterpart,q['depth'])
+            elif root and root['tree']=='config' and target=='pbs':
+                if root['level'] not in CLASS_LEVELS|{'设备'}:raise QueryError('现场反查的构型根必须为设备型号或分类，不能借上级替代。')
+                rows=[]
+                allowed={x['code'] for x in self.desc(root,q['depth']) if x['level']=='设备'} if root['level'] in CLASS_LEVELS else {root['code']}
+                for r in self.objects.values():
+                    if r['tree']!='pbs':continue
+                    dc=self.links(r)['equipment_config']
+                    match=dc and dc['code'] in allowed
+                    if match:rows.append(r)
+            else:rows=self.desc(root,q['depth']) if root else [r for r in self.objects.values() if r['tree']=='pbs']
             if wanted in ('parts','devices'):rows=[r for r in rows if r['level']==('部件' if wanted=='parts' else '设备')]
         out=[]
         for r in rows:
@@ -310,11 +335,12 @@ def execute_task(graph,q):
                     fact=public_object(graph,row);resolved[role].append(fact);evidence.append(fact['source'])
                     record_rows.append({'cells':[ROLE_LABELS[role]+' / '+TREE_LABELS[row.get('tree','points')],row['code'],row['name'],row.get('level','未提供'),row.get('parent','未提供'),links.get('classification_reason','') if role=='part_class' else '']})
                 elif (role=='pbs' and subject.get('tree')=='points' or
+                      role=='config' and subject.get('tree')=='equipment_class' or
                       role=='config' and links.get('pbs') and links['pbs']['level'] in ('设备','子设备','部件','时序测点') or
                       role=='part_class' and (links.get('pbs_part') or subject.get('tree')=='config' and subject.get('level')=='部件') or
                       role=='equipment_class' and links.get('equipment_config')):
-                    missing.append({'role':role,'subject':subject['code'],'reason':links.get('classification_reason') if role=='part_class' else '没有精确关联记录'})
-                    reason=links.get('classification_reason') if role=='part_class' else '没有精确关联记录'
+                    missing.append({'role':role,'subject':subject['code'],'reason':links.get('classification_reason') if role=='part_class' else links.get('role_reason') or '没有精确关联记录'})
+                    reason=links.get('classification_reason') if role=='part_class' else links.get('role_reason') or '没有精确关联记录'
                     record_rows.append({'cells':[ROLE_LABELS[role],'未提供','未提供','未提供','未提供',reason+'；不能用上级或编码前缀代替']})
             if subject.get('tree')=='config':
                 record_rows.append({'cells':['原字段',subject['code'],'所属部件类编码',subject['class_code'] or '未提供','','原构型记录字段，空值不能解释为没有类别']})
@@ -328,7 +354,9 @@ def execute_task(graph,q):
         result['answer']='已分别列出原对象与实际关联记录。'+('缺失关系写未提供，不能据此认定对象不存在或没有类别。' if missing else '设备类取实际设备构型父编码；部件类取精确部件构型分类引用。')
 
     else:
-        try:selectors=graph.classify(q['classes'])
+        try:
+            selectors=graph.classify(q['classes'])
+            rows=graph.population(q,root)
         except NodeRoleUnknown as error:
             return {**result,'status':'data_insufficient','answer':str(error),'metrics':[],
                 'evidence':[graph.store.ref(r) for r in (error.node,error.config) if r],
@@ -340,7 +368,7 @@ def execute_task(graph,q):
             if role=='equipment_config':
                 evidence.append(graph.store.ref(graph.objects[('config',code)]))
                 result['note']+='设备类表所选记录对应设备构型 '+code+'，按精确设备构型匹配范围内现场设备，未替换为上级设备类。'
-        rows=graph.population(q,root);full_total=len(rows);distinct=len({r['code'] for r in rows})
+        full_total=len(rows);distinct=len({r['code'] for r in rows})
         class_groups=Counter();unresolved=[]
         if q['population']=='parts':
             for row in rows:
@@ -406,7 +434,7 @@ def execute_task(graph,q):
                 for visible in record_rows:visible['cells'] += ['']*len(extra)
                 for r in rows:record_rows.append({'cells':['原记录',r['code'],graph.store.ref(r)['line'],r['name'],r['system']]+[graph.value(r,p) or '未提供' for p in extra]})
         else:
-            props=list(dict.fromkeys(['code','name']+(['source','line','status'] if q['population']=='points' else [])+(['parent','class_code'] if q['only']=='missing_class' else [])+q['properties']))
+            props=list(dict.fromkeys(['code','name']+(['location'] if q['population']=='devices' and (q['target_tree'] or (root or {}).get('tree','pbs'))=='pbs' else [])+(['source','line','status'] if q['population']=='points' else [])+(['parent','class_code'] if q['only']=='missing_class' else [])+q['properties']))
             ordered=graph.sort_rows(rows,q['sort']) if q['sort'] else rows
             shown=ordered[:q['limit']] if q['limit'] else ordered
             result['columns']=[CATALOG.get(p,{}).get('label',{'line':'原CSV行号','pbs_part':'现场部件编码','location':'功能位置编码'}.get(p,p)) for p in props]+(['关联说明'] if q['only']=='missing_class' else [])
@@ -479,9 +507,14 @@ def execute(store,plan):
     if len(tasks)==1 and items[0]['task_context'].get('query'):result['query']=copy.deepcopy(items[0]['task_context']['query'])
     result['query_receipt']={'operation':'relational','grain':'per_task','tasks':copy.deepcopy(tasks),'completed':all(i['status']=='ok' and not i.get('outcome') and not i.get('missing_links') for i in items)}
     if len(tasks)==1 and tasks[0]['spec']['kind']=='collection':
-        q=tasks[0]['spec'];root=q['root'];target='points' if q['population']=='points' else 'parts' if q['population']=='parts' and root and root['tree']=='config' else root['tree'] if root else 'pbs'
+        q=tasks[0]['spec'];root=q['root']
+        # 回执粒度属于实际交付域，源身份仍保持原根；反查不能标成模板。
+        output_tree='points' if q['population']=='points' else q['target_tree'] or (root['tree'] if root else 'pbs')
+        target='parts' if q['population']=='parts' and output_tree=='config' else output_tree
+        grain={'points':'measurement_record','pbs':'pbs_object','config':'config_object'}.get(output_tree,'object')
         filters=copy.deepcopy(q['filters'])
         if root and root['tree']=='points':filters.insert(0,{'field':root['field'],'operator':'equals','value':root['value']})
-        result['query_receipt'].update(operation='search',requested_entity=result['entity'],resolved_entity=result['entity'],scope=q['depth'],query={'target':target,'filters':filters},grain='measurement_record' if target=='points' else 'pbs_object' if root and root['tree']=='pbs' else 'config_object')
+        result['query_receipt'].update(operation='search',requested_entity=result['entity'],resolved_entity=result['entity'],scope=q['depth'],query={'target':target,'filters':filters},grain=grain)
         result['query']={'target':target,'filters':filters}
+        result['grain']=grain
     return result
