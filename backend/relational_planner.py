@@ -18,6 +18,8 @@ def required_relation(question,context):
     if __import__('re').search(r'差值|相减|相加|乘以|除以|比例|极值|按(?:测量值|阈值).*(?:排序|排名)',question):return False
     if __import__('re').search(r'如何判断|怎么判断|你是如何|解释.*依据|按[^，。；]*(?:测量时间|更新时间|插入时间|变化速率|预测值)[^，。；]*(?:排序|排名)|最早|最新|最小|最大',question):return False
     if context.get('relational_state') and __import__('re').fullmatch(r'\s*设备类(?:表|字典)?(?:呢)?[？?。]?\s*',question):return True
+    from relational_input_bindings import site_population
+    if site_population(question) and __import__('re').search(r'PBS|构型|设备类|部件类',question):return True
     graph_goal=__import__('re').search(r'下级|直属|直接(?:部件|设备|对象)|后代|现场部件|现场设备|真实父|精确关联|对应.*(?:构型|设备类|部件类)|所属.*(?:设备类|部件类)|原记录|原行',question)
     if graph_goal and (__import__('re').search(r'PBS|构型|设备类|部件类|源系统|完整编码',question) or context.get('relational_state')):return True
     patterns=(r'(?:按|部件)(?:对象类型|部件类|部件类别|类别|类型|来源|源系统|功能位置).*(?:分组|分布|统计|分别.*多少|各.*数量)',
@@ -257,7 +259,9 @@ def data_prerequisite(question,context,store):
     refs=literal_references(question,store)
     class_refs=[x for x in refs if x.get('domain')=='equipment_class']
     import re
-    if not context.get('relational_state') and required_relation(question,context) and re.search(r'现场(?:设备|部件)',question) and not re.search(r'分别|同时|另查|另外|第[一二三四1-4]项',question):
+    from relational_input_bindings import site_population
+    population=site_population(question)
+    if not context.get('relational_state') and required_relation(question,context) and population and not re.search(r'分别|同时|另查|另外|第[一二三四1-4]项',question):
         identities={r['code'] for ref in class_refs for r in store.rows('SELECT code FROM objects WHERE tree=? AND (code=? OR name=?)',['equipment_class',ref['value'],ref['value']])}
         all_values={x['value'] for x in refs}
         if len(identities)==1 and all_values<={*identities,*(ref['value'] for ref in class_refs)}:
@@ -268,7 +272,7 @@ def data_prerequisite(question,context,store):
             from relational_query import Graph,NodeRoleUnknown
             try:Graph(store).classify({'equipment_class':code})
             except NodeRoleUnknown as error:
-                spec=canonical({'root':{'tree':'equipment_class','field':'code','value':code},'kind':'collection','population':'parts' if '现场部件' in question else 'devices'})
+                spec=canonical({'root':{'tree':'equipment_class','field':'code','value':code},'kind':'collection','population':population})
                 plan=validate_plan({'operation':'relational','entity':None,'scope':'direct','clarification':'','relational_tasks':[{'id':1,'spec':spec}]})
                 return plan,{'engine':'relational_request','source_question':question,'stage':'programmatic_data_prerequisite','role_verified':False,'count_computed':False,'reason':str(error),'validated_intent':copy.deepcopy(plan)}
 
@@ -288,6 +292,9 @@ def interpret(question,context,key,store=None):
         context['relational_bound_inputs']=literal_relation_inputs(question,store) if context['relational_required'] else []
         guarded=data_prerequisite(question,context,store)
         if guarded:return guarded
+        from relational_input_bindings import classification_boundary_request
+        boundary=classification_boundary_request(question,context,store)
+        if boundary:return boundary,{'engine':'relational_request','source_question':question,'stage':'programmatic_classification_boundary','validated_intent':copy.deepcopy(boundary),'basis':'已执行缺类部件明细与登记结论边界；原根、层级和筛选保留'}
         if context['relational_required']:
             from relational_capabilities import reference_capabilities
             context['relational_reference_capabilities']=reference_capabilities(store,context['relational_literal_references'])
@@ -370,6 +377,13 @@ def bind(store,question,plan,context,trace):
         if not guarded or guarded[0]!=plan:raise ValueError('资料前提证据或原身份已变化，未执行。')
         validate_plan(plan);seal(store,question,plan)
         trace['gateway']={'status':'verified','entry':'programmatic_data_prerequisite','count_computed':False,'data_rechecked':True}
+        return plan
+    if trace.get('stage')=='programmatic_classification_boundary':
+        from relational_input_bindings import classification_boundary_request
+        guarded=classification_boundary_request(question,context or {},store)
+        if guarded!=plan:raise ValueError('已执行缺类范围或本轮结论问题变化，未执行。')
+        validate_plan(plan);seal(store,question,plan)
+        trace['gateway']={'status':'verified','entry':'programmatic_classification_boundary','scope_rechecked':True}
         return plan
     from relational_state import compile_delta
     def compiled(raw):

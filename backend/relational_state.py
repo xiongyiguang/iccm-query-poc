@@ -178,6 +178,11 @@ def apply_classes(q,edits,question,context,store):
         elif action=='set':
             require_keys(edit,{'action','tree','reference'},'set class')
             root=reference(edit['reference'],question,context,store)
+            if root and tree=='equipment_class' and root['tree']=='config':
+                from relational_input_bindings import exact_model_selector
+                code=exact_model_selector(store,root)
+                if code:
+                    q['classes'][tree]=code;touched.add(tree);continue
             if not root or root['tree']!=tree:raise ValueError('分类引用必须来自该分类字典的实际身份。')
             q['classes'][tree]=root['value']
         else:raise ValueError('分类只允许set/remove。')

@@ -10,8 +10,8 @@ project:
   slug: "iccm-query-poc"
   type: "客户POC技术原型"
   shape: "本机与腾讯云演示Web智能问数助手"
-  delivery_goal: "稳定单表及基础多表关联查询，已发布r15；原客户/历史固定回归，复杂多轮暂缓"
-  stage: "r15正式服务已部署，运行0592827；GitHub已推送，同内容C15真实308/308与目标975/135，部署后客户6/6及公网3/3；复杂多轮暂缓"
+  delivery_goal: "稳定单表及基础多表关联查询，r16同版门禁通过待发布；复杂多轮暂缓"
+  stage: "r16同版新48/48、旧48/48、历史117/117、单轮36/36，目标1018/135及前端通过；准备提交部署及正式客户复测，正式仍r15。"
   owner: "用户负责业务确认，Codex负责设计实现"
   created_at: "2026-09-14"
   updated_at: "2026-10-13"
@@ -61,7 +61,7 @@ governance:
   vertical_slice_defined: true
   interaction_baseline_confirmed: true
   test_plan_confirmed: true
-  # 本轮用户明确授权已验证C15提交推送及正式发布，见r15发布记录。
+  # 本轮用户明确三套同版全部通过后提交推送部署，条件已满足，见r16发布记录。
   release_authorized: true
 
 template_changelog:

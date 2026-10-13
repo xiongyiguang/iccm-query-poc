@@ -12,122 +12,122 @@
     {
       "gate": "architecture_confirmed",
       "status": "已确认",
-      "confirmed_by": "用户（本轮已验证POC候选发布范围的合并授权）；工程复核由Codex执行",
+      "confirmed_by": "用户（同版全部通过后提交推送部署的明确条件授权）；Codex执行工程核验",
       "confirmed_at": "2026-10-13",
-      "confirmation_ref": "用户最新消息：提交、推送GitHub、部署到腾讯云正式服务，部署后再复测客户那两道原题；继承上一轮单轮优先/复杂多轮暂缓范围，不代表客户正式验收或所有语义缺口关闭。",
-      "evidence_path": "docs/07-部署与运维/r15发布记录-20261013.md"
+      "confirmation_ref": "用户最新消息：新48、旧48和历史117在同一修复版本跑完，允许DeepSeek；全部通过后提交推送GitHub、部署腾讯云，再复测客户两原题。同版c3完整213/213，条件满足；继承单轮优先、复杂多轮新设计暂缓及只读POC范围，不代表客户正式验收。",
+      "evidence_path": "docs/07-部署与运维/r16发布记录-20261013.md"
     },
     {
       "gate": "ai_boundary_confirmed",
       "status": "已确认",
-      "confirmed_by": "用户（本轮已验证POC候选发布范围的合并授权）；工程复核由Codex执行",
+      "confirmed_by": "用户（同版全部通过后提交推送部署的明确条件授权）；Codex执行工程核验",
       "confirmed_at": "2026-10-13",
-      "confirmation_ref": "用户最新消息：提交、推送GitHub、部署到腾讯云正式服务，部署后再复测客户那两道原题；继承上一轮单轮优先/复杂多轮暂缓范围，不代表客户正式验收或所有语义缺口关闭。",
-      "evidence_path": "docs/07-部署与运维/r15发布记录-20261013.md"
+      "confirmation_ref": "用户最新消息：新48、旧48和历史117在同一修复版本跑完，允许DeepSeek；全部通过后提交推送GitHub、部署腾讯云，再复测客户两原题。同版c3完整213/213，条件满足；继承单轮优先、复杂多轮新设计暂缓及只读POC范围，不代表客户正式验收。",
+      "evidence_path": "docs/07-部署与运维/r16发布记录-20261013.md"
     },
     {
       "gate": "interaction_baseline_confirmed",
       "status": "已确认",
-      "confirmed_by": "用户（本轮已验证POC候选发布范围的合并授权）；工程复核由Codex执行",
+      "confirmed_by": "用户（同版全部通过后提交推送部署的明确条件授权）；Codex执行工程核验",
       "confirmed_at": "2026-10-13",
-      "confirmation_ref": "用户最新消息：提交、推送GitHub、部署到腾讯云正式服务，部署后再复测客户那两道原题；继承上一轮单轮优先/复杂多轮暂缓范围，不代表客户正式验收或所有语义缺口关闭。",
-      "evidence_path": "docs/07-部署与运维/r15发布记录-20261013.md"
+      "confirmation_ref": "用户最新消息：新48、旧48和历史117在同一修复版本跑完，允许DeepSeek；全部通过后提交推送GitHub、部署腾讯云，再复测客户两原题。同版c3完整213/213，条件满足；继承单轮优先、复杂多轮新设计暂缓及只读POC范围，不代表客户正式验收。",
+      "evidence_path": "docs/07-部署与运维/r16发布记录-20261013.md"
     },
     {
       "gate": "regression_boundary_confirmed",
       "status": "已确认",
-      "confirmed_by": "用户（本轮已验证POC候选发布范围的合并授权）；工程复核由Codex执行",
+      "confirmed_by": "用户（同版全部通过后提交推送部署的明确条件授权）；Codex执行工程核验",
       "confirmed_at": "2026-10-13",
-      "confirmation_ref": "用户最新消息：提交、推送GitHub、部署到腾讯云正式服务，部署后再复测客户那两道原题；继承上一轮单轮优先/复杂多轮暂缓范围，不代表客户正式验收或所有语义缺口关闭。",
-      "evidence_path": "docs/07-部署与运维/r15发布记录-20261013.md"
+      "confirmation_ref": "用户最新消息：新48、旧48和历史117在同一修复版本跑完，允许DeepSeek；全部通过后提交推送GitHub、部署腾讯云，再复测客户两原题。同版c3完整213/213，条件满足；继承单轮优先、复杂多轮新设计暂缓及只读POC范围，不代表客户正式验收。",
+      "evidence_path": "docs/07-部署与运维/r16发布记录-20261013.md"
     },
     {
       "gate": "execution_profile_confirmed",
       "status": "已确认",
-      "confirmed_by": "用户（本轮已验证POC候选发布范围的合并授权）；工程复核由Codex执行",
+      "confirmed_by": "用户（同版全部通过后提交推送部署的明确条件授权）；Codex执行工程核验",
       "confirmed_at": "2026-10-13",
-      "confirmation_ref": "用户最新消息：提交、推送GitHub、部署到腾讯云正式服务，部署后再复测客户那两道原题；继承上一轮单轮优先/复杂多轮暂缓范围，不代表客户正式验收或所有语义缺口关闭。",
-      "evidence_path": "docs/07-部署与运维/r15发布记录-20261013.md"
+      "confirmation_ref": "用户最新消息：新48、旧48和历史117在同一修复版本跑完，允许DeepSeek；全部通过后提交推送GitHub、部署腾讯云，再复测客户两原题。同版c3完整213/213，条件满足；继承单轮优先、复杂多轮新设计暂缓及只读POC范围，不代表客户正式验收。",
+      "evidence_path": "docs/07-部署与运维/r16发布记录-20261013.md"
     },
     {
       "gate": "product_strategy_confirmed",
       "status": "已确认",
-      "confirmed_by": "用户（本轮已验证POC候选发布范围的合并授权）；工程复核由Codex执行",
+      "confirmed_by": "用户（同版全部通过后提交推送部署的明确条件授权）；Codex执行工程核验",
       "confirmed_at": "2026-10-13",
-      "confirmation_ref": "用户最新消息：提交、推送GitHub、部署到腾讯云正式服务，部署后再复测客户那两道原题；继承上一轮单轮优先/复杂多轮暂缓范围，不代表客户正式验收或所有语义缺口关闭。",
-      "evidence_path": "docs/07-部署与运维/r15发布记录-20261013.md"
+      "confirmation_ref": "用户最新消息：新48、旧48和历史117在同一修复版本跑完，允许DeepSeek；全部通过后提交推送GitHub、部署腾讯云，再复测客户两原题。同版c3完整213/213，条件满足；继承单轮优先、复杂多轮新设计暂缓及只读POC范围，不代表客户正式验收。",
+      "evidence_path": "docs/07-部署与运维/r16发布记录-20261013.md"
     },
     {
       "gate": "requirements_confirmed",
       "status": "已确认",
-      "confirmed_by": "用户（本轮已验证POC候选发布范围的合并授权）；工程复核由Codex执行",
+      "confirmed_by": "用户（同版全部通过后提交推送部署的明确条件授权）；Codex执行工程核验",
       "confirmed_at": "2026-10-13",
-      "confirmation_ref": "用户最新消息：提交、推送GitHub、部署到腾讯云正式服务，部署后再复测客户那两道原题；继承上一轮单轮优先/复杂多轮暂缓范围，不代表客户正式验收或所有语义缺口关闭。",
-      "evidence_path": "docs/07-部署与运维/r15发布记录-20261013.md"
+      "confirmation_ref": "用户最新消息：新48、旧48和历史117在同一修复版本跑完，允许DeepSeek；全部通过后提交推送GitHub、部署腾讯云，再复测客户两原题。同版c3完整213/213，条件满足；继承单轮优先、复杂多轮新设计暂缓及只读POC范围，不代表客户正式验收。",
+      "evidence_path": "docs/07-部署与运维/r16发布记录-20261013.md"
     },
     {
       "gate": "business_design_confirmed",
       "status": "已确认",
-      "confirmed_by": "用户（本轮已验证POC候选发布范围的合并授权）；工程复核由Codex执行",
+      "confirmed_by": "用户（同版全部通过后提交推送部署的明确条件授权）；Codex执行工程核验",
       "confirmed_at": "2026-10-13",
-      "confirmation_ref": "用户最新消息：提交、推送GitHub、部署到腾讯云正式服务，部署后再复测客户那两道原题；继承上一轮单轮优先/复杂多轮暂缓范围，不代表客户正式验收或所有语义缺口关闭。",
-      "evidence_path": "docs/07-部署与运维/r15发布记录-20261013.md"
+      "confirmation_ref": "用户最新消息：新48、旧48和历史117在同一修复版本跑完，允许DeepSeek；全部通过后提交推送GitHub、部署腾讯云，再复测客户两原题。同版c3完整213/213，条件满足；继承单轮优先、复杂多轮新设计暂缓及只读POC范围，不代表客户正式验收。",
+      "evidence_path": "docs/07-部署与运维/r16发布记录-20261013.md"
     },
     {
       "gate": "reuse_assessment_confirmed",
       "status": "已确认",
-      "confirmed_by": "用户（本轮已验证POC候选发布范围的合并授权）；工程复核由Codex执行",
+      "confirmed_by": "用户（同版全部通过后提交推送部署的明确条件授权）；Codex执行工程核验",
       "confirmed_at": "2026-10-13",
-      "confirmation_ref": "用户最新消息：提交、推送GitHub、部署到腾讯云正式服务，部署后再复测客户那两道原题；继承上一轮单轮优先/复杂多轮暂缓范围，不代表客户正式验收或所有语义缺口关闭。",
-      "evidence_path": "docs/07-部署与运维/r15发布记录-20261013.md"
+      "confirmation_ref": "用户最新消息：新48、旧48和历史117在同一修复版本跑完，允许DeepSeek；全部通过后提交推送GitHub、部署腾讯云，再复测客户两原题。同版c3完整213/213，条件满足；继承单轮优先、复杂多轮新设计暂缓及只读POC范围，不代表客户正式验收。",
+      "evidence_path": "docs/07-部署与运维/r16发布记录-20261013.md"
     },
     {
       "gate": "data_design_confirmed",
       "status": "已确认",
-      "confirmed_by": "用户（本轮已验证POC候选发布范围的合并授权）；工程复核由Codex执行",
+      "confirmed_by": "用户（同版全部通过后提交推送部署的明确条件授权）；Codex执行工程核验",
       "confirmed_at": "2026-10-13",
-      "confirmation_ref": "用户最新消息：提交、推送GitHub、部署到腾讯云正式服务，部署后再复测客户那两道原题；继承上一轮单轮优先/复杂多轮暂缓范围，不代表客户正式验收或所有语义缺口关闭。",
-      "evidence_path": "docs/07-部署与运维/r15发布记录-20261013.md"
+      "confirmation_ref": "用户最新消息：新48、旧48和历史117在同一修复版本跑完，允许DeepSeek；全部通过后提交推送GitHub、部署腾讯云，再复测客户两原题。同版c3完整213/213，条件满足；继承单轮优先、复杂多轮新设计暂缓及只读POC范围，不代表客户正式验收。",
+      "evidence_path": "docs/07-部署与运维/r16发布记录-20261013.md"
     },
     {
       "gate": "acceptance_criteria_confirmed",
       "status": "已确认",
-      "confirmed_by": "用户（本轮已验证POC候选发布范围的合并授权）；工程复核由Codex执行",
+      "confirmed_by": "用户（同版全部通过后提交推送部署的明确条件授权）；Codex执行工程核验",
       "confirmed_at": "2026-10-13",
-      "confirmation_ref": "用户最新消息：提交、推送GitHub、部署到腾讯云正式服务，部署后再复测客户那两道原题；继承上一轮单轮优先/复杂多轮暂缓范围，不代表客户正式验收或所有语义缺口关闭。",
-      "evidence_path": "docs/07-部署与运维/r15发布记录-20261013.md"
+      "confirmation_ref": "用户最新消息：新48、旧48和历史117在同一修复版本跑完，允许DeepSeek；全部通过后提交推送GitHub、部署腾讯云，再复测客户两原题。同版c3完整213/213，条件满足；继承单轮优先、复杂多轮新设计暂缓及只读POC范围，不代表客户正式验收。",
+      "evidence_path": "docs/07-部署与运维/r16发布记录-20261013.md"
     },
     {
       "gate": "acceptance_scenarios_confirmed",
       "status": "已确认",
-      "confirmed_by": "用户（本轮已验证POC候选发布范围的合并授权）；工程复核由Codex执行",
+      "confirmed_by": "用户（同版全部通过后提交推送部署的明确条件授权）；Codex执行工程核验",
       "confirmed_at": "2026-10-13",
-      "confirmation_ref": "用户最新消息：提交、推送GitHub、部署到腾讯云正式服务，部署后再复测客户那两道原题；继承上一轮单轮优先/复杂多轮暂缓范围，不代表客户正式验收或所有语义缺口关闭。",
-      "evidence_path": "docs/07-部署与运维/r15发布记录-20261013.md"
+      "confirmation_ref": "用户最新消息：新48、旧48和历史117在同一修复版本跑完，允许DeepSeek；全部通过后提交推送GitHub、部署腾讯云，再复测客户两原题。同版c3完整213/213，条件满足；继承单轮优先、复杂多轮新设计暂缓及只读POC范围，不代表客户正式验收。",
+      "evidence_path": "docs/07-部署与运维/r16发布记录-20261013.md"
     },
     {
       "gate": "vertical_slice_defined",
       "status": "已确认",
-      "confirmed_by": "用户（本轮已验证POC候选发布范围的合并授权）；工程复核由Codex执行",
+      "confirmed_by": "用户（同版全部通过后提交推送部署的明确条件授权）；Codex执行工程核验",
       "confirmed_at": "2026-10-13",
-      "confirmation_ref": "用户最新消息：提交、推送GitHub、部署到腾讯云正式服务，部署后再复测客户那两道原题；继承上一轮单轮优先/复杂多轮暂缓范围，不代表客户正式验收或所有语义缺口关闭。",
-      "evidence_path": "docs/07-部署与运维/r15发布记录-20261013.md"
+      "confirmation_ref": "用户最新消息：新48、旧48和历史117在同一修复版本跑完，允许DeepSeek；全部通过后提交推送GitHub、部署腾讯云，再复测客户两原题。同版c3完整213/213，条件满足；继承单轮优先、复杂多轮新设计暂缓及只读POC范围，不代表客户正式验收。",
+      "evidence_path": "docs/07-部署与运维/r16发布记录-20261013.md"
     },
     {
       "gate": "test_plan_confirmed",
       "status": "已确认",
-      "confirmed_by": "用户（本轮已验证POC候选发布范围的合并授权）；工程复核由Codex执行",
+      "confirmed_by": "用户（同版全部通过后提交推送部署的明确条件授权）；Codex执行工程核验",
       "confirmed_at": "2026-10-13",
-      "confirmation_ref": "用户最新消息：提交、推送GitHub、部署到腾讯云正式服务，部署后再复测客户那两道原题；继承上一轮单轮优先/复杂多轮暂缓范围，不代表客户正式验收或所有语义缺口关闭。",
-      "evidence_path": "docs/07-部署与运维/r15发布记录-20261013.md"
+      "confirmation_ref": "用户最新消息：新48、旧48和历史117在同一修复版本跑完，允许DeepSeek；全部通过后提交推送GitHub、部署腾讯云，再复测客户两原题。同版c3完整213/213，条件满足；继承单轮优先、复杂多轮新设计暂缓及只读POC范围，不代表客户正式验收。",
+      "evidence_path": "docs/07-部署与运维/r16发布记录-20261013.md"
     },
     {
       "gate": "release_authorized",
       "status": "已确认",
-      "confirmed_by": "用户（本轮已验证POC候选发布范围的合并授权）；工程复核由Codex执行",
+      "confirmed_by": "用户（同版全部通过后提交推送部署的明确条件授权）；Codex执行工程核验",
       "confirmed_at": "2026-10-13",
-      "confirmation_ref": "用户最新消息：提交、推送GitHub、部署到腾讯云正式服务，部署后再复测客户那两道原题；继承上一轮单轮优先/复杂多轮暂缓范围，不代表客户正式验收或所有语义缺口关闭。",
-      "evidence_path": "docs/07-部署与运维/r15发布记录-20261013.md"
+      "confirmation_ref": "用户最新消息：新48、旧48和历史117在同一修复版本跑完，允许DeepSeek；全部通过后提交推送GitHub、部署腾讯云，再复测客户两原题。同版c3完整213/213，条件满足；继承单轮优先、复杂多轮新设计暂缓及只读POC范围，不代表客户正式验收。",
+      "evidence_path": "docs/07-部署与运维/r16发布记录-20261013.md"
     }
   ]
 }

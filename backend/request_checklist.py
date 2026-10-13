@@ -513,6 +513,14 @@ def gate(question,previous,candidate,changed,mode,store,reference_context=None):
     comparison['matches']=comparison['matches'] and (mode==answer['mode'] or same_future)
     out={'decision':'accept' if comparison['matches'] else 'clarify','choice':'candidate','extraction':trace,'comparison':comparison}
     if comparison['matches']:return out
+    if len(comparison['candidate'])==len(comparison['independent'])==1 and mode==answer['mode']:
+        from request_projection import explicit_scalar_projection_choice
+        choice=explicit_scalar_projection_choice(question,comparison['candidate'][0],comparison['independent'][0],
+            canonical_tasks(candidate,[t['id'] for t in candidate['tasks']],store),canonical_tasks(state,[t['id'] for t in state['tasks']],store),store)
+        if choice:
+            out.update(decision='accept',choice=choice,explicit_scalar_projection_binding=True)
+            if choice=='independent':out.update(plan=plan,state=state,changed=ids,delta=delta)
+            return out
     # 默认快照投影与单条测点列表输出同一事实；其他结果动作不可用此例外。
     ca,cb=comparison['candidate'],comparison['independent']
     if len(ca)==len(cb)==1 and mode==answer['mode']:

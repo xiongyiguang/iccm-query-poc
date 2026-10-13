@@ -70,6 +70,9 @@ def normalize_delta(raw,question,context,store=None):
         return {'handled':False},['false接口版本标识不携带任何业务槽位']
     if not isinstance(value,dict) or value.get('version')!=2 or value.get('handled') is not True:return value,audit
     if not isinstance(value.get('tasks'),list):return value,audit
+    from relational_input_bindings import complete_task_source,explicit_relation_read
+    complete_task_source(value,question,audit)
+    explicit_relation_read(value,question,context,store,audit)
     old=previous_tasks(context)
     independent_association=False
     controls=control_text(question)
@@ -409,6 +412,9 @@ def normalize_delta(raw,question,context,store=None):
                 edits.append(edit)
             p['classes']=edits
         kind=fields.get('kind',before.get('kind'));pop=fields.get('population',before.get('population'))
+        if value.get('mode')=='new':
+            from relational_input_bindings import bind_explicit_inputs
+            bind_explicit_inputs(p,question,context,store,audit)
         root=p.get('root',before.get('root'));root_tree=root.get('tree') if isinstance(root,dict) else None
         if fields.get('group_by')=='level' and pop!='points' and (root is None or root_tree=='pbs' or isinstance(root,dict) and root.get('type')=='global'):
             fields['group_by']='type';audit.append('PBS原层级与对象类型同一原字段；只在该原表归一level/type，不将构型数字层级当类型')
