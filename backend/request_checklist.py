@@ -118,6 +118,14 @@ def literal_references(question,store):
     """从用户原话链接字段和对象，不依赖任一候选计划。"""
     if store is None:return []
     refs=[]
+    # 数量/任务序号/数值比较和登记字段中的数字，不是恰好同码的对象。
+    # 数字对象的明确引用（例如构型3、编码3）仍保留。
+    numeric_spans=[]
+    for pattern in (r'(?:前|第)\s*[0-9]+\s*(?:类|条|个|项|组|步|台|层|行)',r'任务\s*[0-9]+(?![0-9])',r'(?:大于等于|小于等于|大于|小于|超过|不小于|不大于|低于|高于)\s*-?[0-9]+(?:\.[0-9]+)?',r'源系统[0-9]+',r'(?:高|低)[1-3](?:阈值)?'):
+        numeric_spans += [m.span() for m in re.finditer(pattern,question)]
+    from attributes import CATALOG
+    for spec in CATALOG.values():
+        if any(ch.isdigit() for ch in spec['label']):numeric_spans += [m.span() for m in re.finditer(re.escape(spec['label']),question)]
     for table,domain in (('points','points'),('objects',None)):
         for field in ('name','code'):
             rows=store.rows('SELECT DISTINCT '+field+' AS value'+(',tree' if domain is None else '')+
@@ -126,6 +134,7 @@ def literal_references(question,store):
                 value=row['value']
                 for match in re.finditer(re.escape(value),question):
                     start,end=match.span()
+                    if field=='code' and value.isdigit() and any(a<=start and end<=b for a,b in numeric_spans):continue
                     if field=='code' and ((start and re.fullmatch(r'[A-Za-z0-9_&.#-]',question[start-1])) or (end<len(question) and re.fullmatch(r'[A-Za-z0-9_&.#-]',question[end]))):continue
                     refs.append({'domain':domain or row['tree'],'field':field,'value':value,'start':start,'end':end})
     # 嵌在更长已知名称或编码中的短编码，不是另一处独立引用。
@@ -220,7 +229,7 @@ def extract(question,previous,thinking='disabled',model=None,effort=None,store=N
     start=time.monotonic();attempts=[]
     for attempt in range(2):
         req=urllib.request.Request(ENDPOINT,data=json.dumps(body,ensure_ascii=False).encode(),headers={'Authorization':'Bearer '+os.environ.get('DEEPSEEK_API_KEY',''),'Content-Type':'application/json'},method='POST')
-        with urllib.request.build_opener(NoRedirect).open(req,timeout=60 if thinking=='enabled' else 15) as res:raw=json.load(res)
+        with urllib.request.build_opener(NoRedirect).open(req,timeout=60 if thinking=='enabled' else 30) as res:raw=json.load(res)
         choice=raw['choices'][0]
         if choice.get('finish_reason')!='stop':raise RequestInvalid('独立条件提取未完整结束。')
         content=choice['message']['content'];attempts.append({'content':content,'model':raw.get('model'),'usage':raw.get('usage')})
@@ -233,10 +242,13 @@ def extract(question,previous,thinking='disabled',model=None,effort=None,store=N
         except RequestAmbiguous:break
         except (ValueError,TypeError,KeyError) as error:
             attempts[-1]['validation_error']=str(error)
-            if attempt:
-                failure=RequestInvalid('独立清单经一次修正仍不合法：'+str(error))
+            from result_goal import constraint_feedback
+            if attempt or constraint_feedback(error):
+                label='独立清单触及程序业务边界：' if constraint_feedback(error) else '独立清单经一次修正仍不合法：'
+                failure=RequestInvalid(label+str(error))
                 failure.extraction_trace={'input':payload,'attempts':copy.deepcopy(attempts),'seconds':round(time.monotonic()-start,3)}
                 if hasattr(error,'business_constraint'):failure.business_constraint=copy.deepcopy(error.business_constraint)
+                if constraint_feedback(error) and delta is not None:failure.constraint_delta=copy.deepcopy(delta)
                 raise failure from None
             body['messages']+=[{'role':'assistant','content':content},{'role':'user','content':'程序校验发现协议冲突：'+str(error)+'。请重新按原话和完整业务目录提取同一份条件清单。只修正结构、引用编号或互斥字段，不得忽略原话条件；若原话不能表达为可执行任务应明确unsupported。只输出JSON。'}]
     # 不保存供应商的思考正文或 Authorization 请求头。

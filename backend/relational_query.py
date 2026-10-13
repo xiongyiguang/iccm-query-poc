@@ -5,14 +5,31 @@ from collections import Counter, defaultdict
 from attributes import CATALOG
 from data import QueryError
 from query_filters import validate_query, POINT_FIELDS, POINT_RAW_FIELDS
-from typed_fields import compare, NUMERIC_OPS
+from typed_fields import compare, NUMERIC_OPS, NUMERIC_FIELDS, decimal_value
 
 TREES={'pbs','config','equipment_class','part_class','points'}
 ROLES={'subject','pbs','pbs_parent','pbs_part','pbs_device','config','equipment_config','equipment_class','part_class','parent'}
 ROLE_LABELS={'subject':'查询对象','pbs':'精确PBS对象','pbs_parent':'PBS直接父对象','pbs_part':'最近现场部件','pbs_device':'最近现场设备','config':'该结构对象的精确构型','equipment_config':'所属设备构型','equipment_class':'所属设备类','part_class':'所属部件类','parent':'同树直接父对象'}
 TREE_LABELS={'pbs':'PBS树','config':'构型树','equipment_class':'设备类表','part_class':'部件类表','points':'监测表'}
+CLASS_LEVELS={'类组','大类','中类','小类','设备类'}
+
+class NodeRoleUnknown(QueryError):
+    """存在字典记录但跨表角色无法核实；不是无匹配的零结果。"""
+    def __init__(self,message,node,config=None):
+        super().__init__(message);self.node=node;self.config=config
 DEFAULTS={'root':None,'kind':'relation','population':'objects','depth':'all','classes':{},'filters':[],
           'group_by':None,'properties':[],'limit':None,'sort':[],'only':None,'boundary':None,'compare_root':None}
+
+def canonical_condition(condition):
+    """数值谓词使用无损数学值；字符串身份与原数据值保持原样。"""
+    f=copy.deepcopy(condition)
+    if isinstance(f,dict) and f.get('field') in NUMERIC_FIELDS and f.get('operator') in NUMERIC_OPS:
+        number=decimal_value(f.get('value'))
+        if number is not None:
+            value=format(number,'f')
+            if '.' in value:value=value.rstrip('0').rstrip('.')
+            f['value']='0' if number==0 else value
+    return f
 
 
 def canonical(spec):
@@ -22,6 +39,8 @@ def canonical(spec):
     # 默认值吞掉。两种等价集合写法归一化后保留所有范围槽位。
     if q['kind']=='relation' and (q['group_by'] is not None or q['root'] is None or q['population']!='objects' and q['depth']!='self' and q['root']['tree']!='points'):
         q['kind']='collection'
+    # 分类锚到现场集合的转换必须在实际查表绑定后执行；
+    # 此处不能把不同字面名称/编码未经身份核对就判为冲突。
     if q['kind'] not in ('relation','collection','compare','boundary'):raise ValueError('未知关系操作。')
     if q['population'] not in ('objects','parts','devices','points') or q['depth'] not in ('self','direct','all'):raise ValueError('集合粒度无效。')
     for key in ('root','compare_root'):
@@ -40,6 +59,7 @@ def canonical(spec):
         q['population']='parts' if types[0]=='部件' else 'devices'
     fixed='部件' if q['population']=='parts' else '设备' if q['population']=='devices' else None
     if fixed:q['filters']=[f for f in q['filters'] if f!={'field':'level','operator':'equals','value':fixed}]
+    q['filters']=[canonical_condition(f) for f in q['filters']]
     validate_query({'target':'points' if point_query else 'pbs','filters':q['filters']})
     if q['group_by'] not in (None,'class','type','source','location'):raise ValueError('分组字段无效。')
     if q['only'] not in (None,'missing_class','unmatched'):raise ValueError('关联缺失筛选无效。')
@@ -49,6 +69,12 @@ def canonical(spec):
     if not isinstance(q['properties'],list) or len(q['properties'])>30 or any(p not in CATALOG and p not in ('line','pbs_part','location') for p in q['properties']):raise ValueError('关系投影不在字段目录。')
     if not isinstance(q['sort'],list) or any(p not in ('code','pbs_part','name','source','line') for p in q['sort']):raise ValueError('排序字段无效。')
     q['filters']=sorted(q['filters'],key=lambda f:(f['field'],f['operator'],f['value']))
+    q['filters']=[f for i,f in enumerate(q['filters']) if i==0 or f!=q['filters'][i-1]]
+    root=q['root'] or {}
+    if q['kind']=='collection' and q['population']=='points' and root.get('tree')=='points':
+        # 精确根本身就是该身份范围。相同字段/原值的重复等值条件
+        # 不另存为记录筛选；代码根上的名称子集及其他条件仍保留。
+        q['filters']=[f for f in q['filters'] if f!={'field':root['field'],'operator':'equals','value':root['value']}]
     q['properties']=sorted(set(q['properties']))
     if q['kind']=='relation':
         if q['classes'] or q['filters'] or q['group_by'] or q['limit'] or q['sort'] or q['only']:raise ValueError('单对象关系不能丢弃集合条件。')
@@ -58,12 +84,20 @@ def canonical(spec):
     elif q['kind'] in ('collection','compare','boundary'):
         if q['group_by']=='type' and q['population'] in ('parts','devices'):q['group_by']=None
         base={'code','name'}|({'source','line','status','pbs_part','location'} if q['population']=='points' else set())
+        if q['kind']=='collection' and q['population']=='parts' and q['group_by'] is None and (q['root'] or {}).get('tree','pbs')=='pbs':
+            # 实际PBS部件明细中的最近现场部件就是该原对象自身；
+            # 基础完整编码已经交付，构型部件及分组视图不能套用此等价。
+            base.add('pbs_part');q['sort']=list(dict.fromkeys('code' if p=='pbs_part' else p for p in q['sort']))
         q['properties']=[p for p in q['properties'] if p not in base]
         if q['group_by']=='class':q['properties']=[p for p in q['properties'] if p!='class_code']
+        if q['only']=='missing_class':q['properties']=[p for p in q['properties'] if p not in ('parent','class_code')]
         if q['group_by']:q['sort']=[]
         elif not q['sort']:q['sort']=['pbs_part','code'] if q['population']=='points' else ['code']
         # 测点快照的健康边界是所有集合结果的固定说明，不改变筛选。
         if q['kind']=='collection' and q['boundary']=='health':q['boundary']=None
+        # 缺分类明细本身已经固定交付原因和不可借上级的说明；
+        # 该说明不构成第二种集合目标，不改变任何范围或原字段。
+        if q['kind']=='collection' and q['only']=='missing_class' and q['boundary']=='classification':q['boundary']=None
     if q['root'] is None:q['depth']='all'
     if q['kind']=='compare':q['properties']=[p for p in q['properties'] if p not in ('code','name','type','level','parent')]
     if q['kind']=='boundary' and not q['boundary']:raise ValueError('结论缺少边界类型。')
@@ -91,7 +125,8 @@ def validate_plan(plan):
         t['spec']=canonical(t['spec'])
     if len({t['id'] for t in tasks})!=len(tasks):raise ValueError('关系任务身份重复。')
     same=[t for t in tasks if t['spec']['boundary']=='same_record']
-    if same and (len(same)<2 or len({t['spec']['root']['tree'] for t in same})<2):raise ValueError('same_record需要至少两个不同原表的relation任务；单监测对象关联缺失使用boundary:null。')
+    relations=[t for t in tasks if t['spec']['kind']=='relation' and t['spec']['root']]
+    if same and (len(relations)<2 or len({t['spec']['root']['tree'] for t in relations})<2):raise ValueError('same_record需要至少两个不同原表的relation任务；单监测对象关联缺失使用boundary:null。')
     return plan
 
 
@@ -116,6 +151,12 @@ class Graph:
         if row['tree']!='pbs' or row['level'] not in ('设备','子设备','部件') or '&' not in row['code']:return None
         c=self.objects.get(('config',row['code'].split('&',1)[1]))
         return c if c and c['level']==row['level'] else None
+    def equipment_category(self,device_config):
+        if not device_config:return None
+        parent=self.objects.get(('config',device_config['parent']))
+        # 父引用只能提供关联路径，不能把另一个设备构型改称设备类。
+        if parent and parent['level'] not in CLASS_LEVELS:return None
+        return self.objects.get(('equipment_class',device_config['parent']))
     def links(self,row):
         key=(row.get('tree','points'),row.get('code'),row.get('line'))
         if key in self.link_cache:return self.link_cache[key]
@@ -129,7 +170,7 @@ class Graph:
         out={'subject':row,'pbs':pbs,'pbs_parent':self.objects.get(('pbs',pbs['parent'])) if pbs else None,
              'pbs_part':part if part and part['tree']=='pbs' else None,'pbs_device':device if device and device['tree']=='pbs' else None,
              'config':config,'equipment_config':dc,
-             'equipment_class':self.objects.get(('equipment_class',dc['parent'])) if dc else None,
+             'equipment_class':self.objects.get(('equipment_class',row['code'])) if row.get('tree')=='config' and row.get('level') in CLASS_LEVELS else self.equipment_category(dc),
              'part_class':self.objects.get(('part_class',pc['class_code'])) if pc and pc['class_code'] else None,
              'parent':self.objects.get((row['tree'],row['parent'])) if row.get('tree') in TREES-{'points'} else None}
         out['location']=next((r for r in chain if r['level']=='功能位置'),None)
@@ -185,8 +226,32 @@ class Graph:
         for tree,value in classes.items():
             found=[r for (t,_),r in self.objects.items() if t==tree and value in (r['code'],r['name'])]
             if len(found)!=1:raise QueryError('分类描述或编码未唯一对应字典记录，未把缺失当作零。')
-            out[tree]=found[0]['code']
+            node=found[0];role=tree
+            if tree=='equipment_class':
+                config=self.objects.get(('config',node['code']))
+                if config is None:
+                    raise NodeRoleUnknown('所选设备类表节点缺少对应构型记录，无法确认是分类还是设备构型；未计算数量，不能解释为零。',node)
+                if config:
+                    # 设备类表也包含设备型号节点。编号及父引用同时一致
+                    # 才能识别对应构型，不能按名称前缀或数字层级猜角色。
+                    if config['level']=='设备':
+                        if config['parent']!=node['parent']:
+                            raise NodeRoleUnknown('设备类表与构型记录的父引用不一致，无法确认节点角色；未统计为零。',node,config)
+                        role='equipment_config'
+                    elif config['level'] not in CLASS_LEVELS:
+                        raise NodeRoleUnknown('所选字典节点对应的构型不是设备或设备分类，未套用设备类筛选。',node,config)
+            out[role]=node['code']
         return out
+    def selected(self,links,classes):
+        for role,code in classes.items():
+            node=links.get(role)
+            if not node:return False
+            # 真实分类可以选择其分类子树；型号只能匹配同一设备构型。
+            # 现场范围、遍历深度、其他筛选均由原任务继续维护。
+            if role=='equipment_class':
+                if not any(r['code']==code for r in self.chain(node)):return False
+            elif node['code']!=code:return False
+        return True
     def population(self,q,root):
         wanted=q['population'];classes=self.classify(q['classes'])
         if wanted=='points':
@@ -203,7 +268,7 @@ class Graph:
         out=[]
         for r in rows:
             links=self.links(r)
-            if any(not links[k] or links[k]['code']!=v for k,v in classes.items()):continue
+            if not self.selected(links,classes):continue
             if q['only']=='missing_class' and not links['classification_reason']:continue
             if q['only']=='unmatched' and links['location']:continue
             if self.matches(r,q['filters']):out.append(r)
@@ -253,6 +318,7 @@ def execute_task(graph,q):
                     record_rows.append({'cells':[ROLE_LABELS[role],'未提供','未提供','未提供','未提供',reason+'；不能用上级或编码前缀代替']})
             if subject.get('tree')=='config':
                 record_rows.append({'cells':['原字段',subject['code'],'所属部件类编码',subject['class_code'] or '未提供','','原构型记录字段，空值不能解释为没有类别']})
+                record_rows.append({'cells':['原字段',subject['code'],'层级',graph.value(subject,'level') or '未提供','','原构型对象层级字段，与对象类型描述分别保留']})
             if q['properties']:
                 vals={p:graph.value(subject,p) or '未提供' for p in q['properties']}
                 projected.append({'code':subject['code'],'name':subject['name'],'values':vals,'line':graph.store.ref(subject)['line']})
@@ -260,8 +326,20 @@ def execute_task(graph,q):
         result.update(relation_facts=resolved,field_projection=projected,missing_links=missing)
         if missing:result['note']+='部分关联资料不足；已知原对象仍保留。'
         result['answer']='已分别列出原对象与实际关联记录。'+('缺失关系写未提供，不能据此认定对象不存在或没有类别。' if missing else '设备类取实际设备构型父编码；部件类取精确部件构型分类引用。')
-        if q['boundary']=='same_record':result['answer']+='同码位于不同表，属于不同记录，不能合并。'
+
     else:
+        try:selectors=graph.classify(q['classes'])
+        except NodeRoleUnknown as error:
+            return {**result,'status':'data_insufficient','answer':str(error),'metrics':[],
+                'evidence':[graph.store.ref(r) for r in (error.node,error.config) if r],
+                'relational_resolved':{},'outcome':{'kind':'incomplete','count_computed':False,'role_verified':False}}
+        result['selection_roles']=[{'requested_tree':('equipment_class' if role=='equipment_config' else role),'role':role,'code':code} for role,code in selectors.items()]
+        for role,code in selectors.items():
+            tree='equipment_class' if role=='equipment_config' else role
+            node=graph.objects[(tree,code)];evidence.append(graph.store.ref(node))
+            if role=='equipment_config':
+                evidence.append(graph.store.ref(graph.objects[('config',code)]))
+                result['note']+='设备类表所选记录对应设备构型 '+code+'，按精确设备构型匹配范围内现场设备，未替换为上级设备类。'
         rows=graph.population(q,root);full_total=len(rows);distinct=len({r['code'] for r in rows})
         class_groups=Counter();unresolved=[]
         if q['population']=='parts':
@@ -323,9 +401,12 @@ def execute_task(graph,q):
             if q['group_by']=='source':
                 result['columns']=['源系统/原记录','描述/完整编码','记录数/原行号','不同编码数/名称','来源']
                 for row in record_rows:row['cells'].append('')
-                for r in rows:record_rows.append({'cells':['原记录',r['code'],graph.store.ref(r)['line'],r['name'],r['system']]})
+                extra=q['properties']
+                result['columns'] += [CATALOG.get(p,{}).get('label',p) for p in extra]
+                for visible in record_rows:visible['cells'] += ['']*len(extra)
+                for r in rows:record_rows.append({'cells':['原记录',r['code'],graph.store.ref(r)['line'],r['name'],r['system']]+[graph.value(r,p) or '未提供' for p in extra]})
         else:
-            props=list(dict.fromkeys(['code','name']+(['source','line','status'] if q['population']=='points' else [])+q['properties']))
+            props=list(dict.fromkeys(['code','name']+(['source','line','status'] if q['population']=='points' else [])+(['parent','class_code'] if q['only']=='missing_class' else [])+q['properties']))
             ordered=graph.sort_rows(rows,q['sort']) if q['sort'] else rows
             shown=ordered[:q['limit']] if q['limit'] else ordered
             result['columns']=[CATALOG.get(p,{}).get('label',{'line':'原CSV行号','pbs_part':'现场部件编码','location':'功能位置编码'}.get(p,p)) for p in props]+(['关联说明'] if q['only']=='missing_class' else [])
@@ -346,6 +427,10 @@ def execute_task(graph,q):
                 visible['cells'] += [link['pbs']['code'] if link['pbs'] else '未匹配',eq['code']+' / '+eq['name'] if eq else '未提供',graph.value(row,'pbs_part'),graph.value(row,'location')]
             result['note']+='未匹配表示没有精确PBS或真实父关系，不能凭编码前缀补归属；当前报警快照不能证明全部部件健康。'
         for r in rows:evidence.append(graph.store.ref(r))
+        if q['only']=='missing_class' and not rows:
+            result['answer']+='当前筛选范围内未发现分类资料缺失项，因此没有需要逐条列出的缺失原因；这个零只表示本次资料缺口筛选结果。'
+        if q['kind']=='collection' and q['population']=='parts':
+            result['answer']+=f'已匹配部件类别 {len(class_groups)} 类，部件总数 {full_total} 个。'
         if unresolved:
             result['note']+='完整分类未完成：缺失对象仍计入总数并单列；已匹配分布仅代表其中有依据的部分。'
             result['answer']+=f'其中 {len(unresolved)} 个部件分类关联资料不足，完整分类统计未完成。'
@@ -375,9 +460,18 @@ def legacy_context(item,state,spec):
 
 
 def execute(store,plan):
-    graph=Graph(store);items=[];tasks=plan['relational_tasks']
+    from relational_planner import bound_semantics
+    tasks=bound_semantics({'handled':True,'tasks':copy.deepcopy(plan['relational_tasks'])},store)['tasks']
+    graph=Graph(store);items=[]
     for t in tasks:
         item=execute_task(graph,t['spec']);item['task_number']=t['id'];item['task_question']='任务 '+str(t['id']);items.append(item)
+    # 说明性比较也以实际查到的跨表原记录核验；不同编码不报同码。
+    for item,t in zip(items,tasks):
+        if t['spec']['boundary']!='same_record':continue
+        subjects=item.get('relational_resolved',{}).get('subject',[])
+        proven=any(a['tree']!=b['tree'] and a['code']==b['code'] for a in subjects for other in items if other is not item for b in other.get('relational_resolved',{}).get('subject',[]))
+        if proven:item['answer']+='已核实同码位于不同原表，属于不同记录，不能合并。'
+        else:item['note']+='当前两项没有同码原记录证明，各自按真实树和对象身份交付，不沿用旧同码说明。'
     state={'tasks':[{'id':t['id'],'spec':copy.deepcopy(t['spec']),'resolved':item['relational_resolved']} for t,item in zip(tasks,items)]}
     result=items[0] if len(items)==1 else {'status':'batch','answer':'已分别交付 '+str(len(items))+' 个独立任务。','records':[],'metrics':[],'evidence':[],'path':[],'entity':None,'scope':'direct','note':'','items':items}
     for item,t in zip(items,tasks):item['task_context']=legacy_context(item,state,t['spec'])

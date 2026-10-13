@@ -1,0 +1,5 @@
+[
+  {"id":"CS01","question":"XJ3ABC002RR 下的 设备类描述3727 下的部件有多少类","expected":{"parts":90,"classes":23,"root_tree":"pbs","root_code":"XJ3ABC002RR","depth":"all","selector_role":"equipment_config","selector_code":"RRGA02"}},
+  {"id":"CS02","question":"构型对象描述10435 下的构型部件有多少个","expected":{"parts":5749,"root_tree":"config","root_code":"APAC01","depth":"all"}},
+  {"id":"CS03","question":"构型对象描述10435 下的直属构型部件有多少个","expected":{"parts":0,"root_tree":"config","root_code":"APAC01","depth":"direct"}}
+]

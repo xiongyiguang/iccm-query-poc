@@ -10,11 +10,11 @@ project:
   slug: "iccm-query-poc"
   type: "客户POC技术原型"
   shape: "本机与腾讯云演示Web智能问数助手"
-  delivery_goal: "普通V9及Agent V12.1全部源码文档已推送；普通版腾讯云r13已运行，本机8765/8771最新版已加载"
-  stage: "r13目标机665普通及135Agent兼容离线通过，48+117真实DeepSeek原判据通过，公网真实页面通过；Agent V12完整165原证据和V12.1五步补充保持，非客户验收"
+  delivery_goal: "本机修复基础设备节点角色；稳定单轮单表及多表关联；客户原题固定回归，不提交部署"
+  stage: "用户已授权发布当前已验证版本；Git提交推送和腾讯云r14候选验证进行中，复杂第四轮暂缓"
   owner: "用户负责业务确认，Codex负责设计实现"
   created_at: "2026-09-14"
-  updated_at: "2026-10-09"
+  updated_at: "2026-10-13"
 
 scope:
   data_classification: "客户脱敏POC数据，只读引用"

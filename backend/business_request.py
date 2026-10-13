@@ -505,6 +505,10 @@ def commit_state(context, trace, result, previous=None):
         return context
     trace=trace or {};state=trace.get('business_request_state')
     success=result.get('status')=='ok' or (result.get('status')=='batch' and all(i.get('status')=='ok' for i in result.get('items',[])))
+    if result.get('status')=='clarify' and trace.get('pending_constraint_request'):
+        context['pending_constraint_request']=copy.deepcopy(trace['pending_constraint_request'])
+    elif success or trace.get('constraint_resolution') and (trace.get('validated_intent') or {}).get('operation')!='clarify':
+        context.pop('pending_constraint_request',None)
     pending=[]
     if state and trace.get('changed_tasks'):
         ids=trace['changed_tasks'];items=result.get('items',[]) if result.get('status')=='batch' else [result]

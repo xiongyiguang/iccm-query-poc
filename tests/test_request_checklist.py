@@ -119,6 +119,15 @@ class ChecklistTests(unittest.TestCase):
         self.assertEqual(business_catalog()['properties']['physical_quantity']['fields'],{})
         view[0]['filters'][0]['value']='modified'
         self.assertEqual(candidate['tasks'][0]['filters'][0]['value'],'Point1')
+    def test_numeric_object_does_not_capture_quantity_or_field_value(self):
+        from data import Store
+        from request_checklist import literal_references
+        s=Store(dataset=[{'kind':'config','file':'synthetic.csv','sha256':'0'*64,'rows':[{'对象代码':str(n),'父对象代码':'','对象描述中文':'数字构型'+str(n),'对象层级':'1','对象层级描述':'部件'} for n in (0,1,2,3,10)]}])
+        try:
+            for q in ('展示前3类','测量值大于0','只看源系统1','真实值报警阈值-高2','真实值高2阈值','原CSV第10行'):
+                self.assertEqual([r for r in literal_references(q,s) if r['field']=='code'],[],q)
+            self.assertIn('3',{r['value'] for r in literal_references('查构型树编码3',s)})
+        finally:s.db.close()
     def test_literal_references_keep_full_names_and_multiple_objects(self):
         import sqlite3
         from request_checklist import literal_references
@@ -135,6 +144,18 @@ class ChecklistTests(unittest.TestCase):
             refs=literal_references(q,s)
             self.assertEqual({r['value'] for r in refs},{'测量点名称71','测量点名称19'})
             for r in refs:self.assertEqual(q[r['start']:r['end']],r['value'])
+        finally:s.db.close()
+    def test_task_ordinals_are_not_numeric_business_objects(self):
+        from data import Store
+        from request_checklist import literal_references
+        s=Store(dataset=[{'kind':'config','file':'synthetic.csv','sha256':'0'*64,'rows':[{'对象代码':str(n),'父对象代码':'','对象描述中文':'数字构型'+str(n),'对象层级':'1','对象层级描述':'部件'} for n in (1,2,3)]}])
+        try:self.assertEqual([r for r in literal_references('任务1与任务2分别保留',s) if r['field']=='code'],[])
+        finally:s.db.close()
+    def test_real_numeric_code_after_task_number_is_still_a_literal_object(self):
+        from data import Store
+        from request_checklist import literal_references
+        s=Store(dataset=[{'kind':'config','file':'synthetic.csv','sha256':'0'*64,'rows':[{'对象代码':str(n),'父对象代码':'','对象描述中文':'数字构型'+str(n),'对象层级':'1','对象层级描述':'部件'} for n in (1,3)]}])
+        try:self.assertEqual({r['value'] for r in literal_references('任务1查构型树编码3的原记录',s) if r['field']=='code'},{'3'})
         finally:s.db.close()
     def test_independent_unit_ambiguity_preserves_its_draft_without_execution(self):
         q='under 29 degrees'

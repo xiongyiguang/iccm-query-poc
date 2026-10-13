@@ -99,11 +99,14 @@ class Relations(unittest.TestCase):
     def test_classification_boundary_always_retains_missing_objects(self):
         q=self.q(kind='boundary',boundary='classification');r=execute_task(self.g,q)
         self.assertEqual(q['only'],'missing_class');self.assertEqual(len(r['records']),3)
-    def test_exact_name_and_code_bind_same_object(self):
+    def test_point_name_and_code_do_not_merge_different_original_row_sets(self):
         from relational_planner import bound_semantics
         a={'handled':True,'tasks':[{'id':1,'spec':self.q(root={'tree':'points','field':'name','value':'点一'},population='points')}]}
         b=copy.deepcopy(a);b['tasks'][0]['spec']['root']={'tree':'points','field':'code','value':'UNRELATED'}
-        self.assertEqual(bound_semantics(a,self.s),bound_semantics(b,self.s));self.assertEqual(a['tasks'][0]['spec']['root']['field'],'name')
+        # 原合成输入同码的点一/点二是不同原行，名称选一行，代码选两行。
+        self.assertEqual(len(self.s.rows('SELECT line FROM points WHERE name=?',['点一'])),1)
+        self.assertEqual(len(self.s.rows('SELECT line FROM points WHERE code=?',['UNRELATED'])),2)
+        self.assertNotEqual(bound_semantics(a,self.s),bound_semantics(b,self.s));self.assertEqual(a['tasks'][0]['spec']['root']['field'],'name')
     def test_binding_does_not_equate_filters_with_same_current_results(self):
         from relational_planner import bound_semantics
         a={'handled':True,'tasks':[{'id':1,'spec':self.q(population='points',filters=[{'field':'source','operator':'equals','value':'S'}])}]}
@@ -128,6 +131,10 @@ class Relations(unittest.TestCase):
         with self.assertRaises(ValueError):ground([{'spec':self.q(classes={'part_class':'123'})}],'部件类描述123',{'entity':{'code':'L&D'}},self.s)
     def test_missing_class_rows_have_explicit_reason_column(self):
         r=self.runq(group_by='class');self.assertEqual(r['columns'][-1],'关联说明');self.assertTrue(all(len(x['cells'])==len(r['columns']) for x in r['records']))
+    def test_empty_missing_class_view_explains_zero_scope_and_absent_reasons(self):
+        r=self.runq(root={'tree':'config','field':'code','value':'D#p1'},only='missing_class');self.assertEqual(r['records'],[]);self.assertIn('未发现分类资料缺失项',r['answer']);self.assertIn('本次资料缺口筛选结果',r['answer'])
+    def test_nonempty_missing_class_view_does_not_claim_no_missing_data(self):
+        r=self.runq(only='missing_class');self.assertEqual(len(r['records']),3);self.assertNotIn('未发现分类资料缺失项',r['answer']);self.assertTrue(all(x['cells'][-1] for x in r['records']))
     def test_same_record_flag_needs_distinct_original_tables(self):
         p={'operation':'relational','entity':None,'scope':'direct','clarification':'','relational_tasks':[{'id':1,'spec':self.q(kind='relation',boundary='same_record')}]}
         with self.assertRaises(ValueError):validate_plan(p)
@@ -143,6 +150,25 @@ class Relations(unittest.TestCase):
         self.assertEqual(self.q(population='objects',filters=[{'field':'type','operator':'equals','value':'部件'}]),self.q(population='parts'))
     def test_default_sort_equals_explicit_code(self):self.assertEqual(self.q(),self.q(sort=['code']))
     def test_class_projection_already_delivered(self):self.assertEqual(self.q(group_by='class'),self.q(group_by='class',properties=['code','name','class_code']))
+    def test_root_identity_is_not_a_second_independent_point_filter(self):
+        q=self.q(population='points',root={'tree':'points','field':'name','value':'点一'},filters=[{'field':'name','operator':'equals','value':'点一'}])
+        self.assertEqual(q['filters'],[]);self.assertEqual(len(execute_task(self.g,q)['records']),1)
+    def test_code_root_name_subset_is_a_separate_preserved_predicate(self):
+        q=self.q(population='points',root={'tree':'points','field':'code','value':'UNRELATED'},filters=[{'field':'name','operator':'equals','value':'点一'}])
+        self.assertEqual(len(q['filters']),1);self.assertEqual(len(execute_task(self.g,q)['records']),1)
+    def test_replacing_name_identity_with_code_can_select_all_original_names(self):
+        q=self.q(population='points',root={'tree':'points','field':'name','value':'点一'},filters=[{'field':'name','operator':'equals','value':'点一'}]);q['root']={'tree':'points','field':'code','value':'UNRELATED'}
+        self.assertEqual({r['name'] for r in execute_task(self.g,canonical(q))['records']},{'点一','点二'})
+    def test_pbs_part_detail_identity_projection_and_sort_are_actual_self_code(self):
+        a=self.q(population='parts',properties=['pbs_part'],sort=['pbs_part','code']);b=self.q(population='parts',sort=['code'])
+        self.assertEqual(a,b)
+    def test_template_or_grouped_part_projection_is_not_a_pbs_self_identity(self):
+        for spec in (self.q(population='parts',root={'tree':'config','field':'code','value':'D'},properties=['pbs_part']),self.q(population='parts',group_by='class',properties=['pbs_part'])):
+            self.assertIn('pbs_part',spec['properties'])
+    def test_missing_pbs_parts_still_deliver_complete_original_self_codes_and_reasons(self):
+        q=self.q(population='parts',only='missing_class',properties=['pbs_part']);r=execute_task(self.g,q)
+        self.assertEqual({row['cells'][0] for row in r['records']},{'L&D#p2','L&D#p3','L&D#p4'});self.assertIn('关联说明',r['columns'])
+        self.assertTrue(all(row['cells'][-1] for row in r['records']))
     def test_point_relation_preserves_identity_despite_population_alias(self):
         a=canonical({'root':{'tree':'points','field':'name','value':'点一'},'kind':'relation','population':'points'});b=canonical({'root':{'tree':'points','field':'name','value':'点一'},'kind':'relation'});self.assertEqual(a,b)
     def test_collection_alias_does_not_discard_scope(self):

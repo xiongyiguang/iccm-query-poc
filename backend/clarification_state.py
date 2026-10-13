@@ -1,9 +1,46 @@
 """把澄清绑定到确切槽位，仅对程序保存的选项执行受限更新。"""
-import copy
+import copy,hashlib,json,re
 from business_request import compile_selected
 
 FIELD_LABELS={'name':['名称','按名称','对象名称'],'code':['编码','按编码','对象编码'],'identity':['名称或编码','名称或者编码']}
 TARGET_LABELS={'pbs':['PBS','PBS树'],'config':['构型','构型树'],'equipment_class':['设备类'],'part_class':['部件类'],'points':['测点','测量点']}
+
+def request_base_hash(previous):
+ return hashlib.sha256(json.dumps(previous,ensure_ascii=False,sort_keys=True,separators=(',',':')).encode()).hexdigest()
+
+def quantity_pending(question,request,previous):
+ """只保存真实原话及唯一数量位置，不把未执行提取变成已确认对象。"""
+ if not isinstance(request,dict):return None
+ limits=[t.get('set',{}).get('result_goal',{}).get('limit') for t in request.get('tasks',[]) if isinstance(t,dict) and isinstance(t.get('set'),dict) and isinstance(t['set'].get('result_goal'),dict) and t['set']['result_goal'].get('kind')=='sort']
+ invalid=[n for n in limits if type(n) is int and not 1<=n<=100]
+ if len(limits)!=1 or len(invalid)!=1:return None
+ quoted=[m.span() for m in re.finditer(r'“[^”]*”|「[^」]*」|『[^』]*』|\"[^\"]*\"|`[^`]*`',question)]
+ quoted += [m.span() for m in re.finditer(r'(?:名字(?:叫|为)|名称(?:为|是)|名为|编码(?:为|是))[^，。；;！？!?]*',question)]
+ spans=[]
+ for m in re.finditer(r'(?:前|返回|取|显示|输出|列出|只要)\s*([+-]?\d+)\s*(?:条|个|项|组)',question):
+  if int(m.group(1))==invalid[0] and not any(a<=m.start() and m.end()<=b for a,b in quoted):spans.append(list(m.span(1)))
+ if len(spans)!=1:return None
+ return {'version':1,'kind':'sort_limit','question':question,'span':spans[0],'requested':invalid[0],'base_hash':request_base_hash(previous)}
+
+def resolve_quantity(question,context):
+ """仅替换待确认数量；原条件/顺序原话逐字保留，再走完整双模型核验。"""
+ pending=context.get('pending_constraint_request')
+ if not isinstance(pending,dict) or set(pending)!={'version','kind','question','span','requested','base_hash'} or pending.get('version')!=1 or pending.get('kind')!='sort_limit':return None
+ previous=context.get('pending_business_request') or context.get('business_request')
+ if pending['base_hash']!=request_base_hash(previous):return None
+ original=pending['question'];span=pending['span']
+ if not isinstance(original,str) or not isinstance(span,list) or len(span)!=2 or any(type(n) is not int for n in span) or not 0<=span[0]<span[1]<=len(original):return None
+ try:
+  if int(original[span[0]:span[1]])!=pending['requested']:return None
+ except ValueError:return None
+ expected=quantity_pending(original,{'tasks':[{'set':{'result_goal':{'kind':'sort','limit':pending['requested']}}}]},previous)
+ if expected!=pending:return None
+ answer=question.strip().strip('。！？!?')
+ pattern=r'(?:改(?:为|成)|换(?:成|为)|那就(?:改(?:为|成))?|就|返回|取)?\s*(?:前)?\s*([+-]?\d+)\s*(?:条|个|项|组)?(?:\s*[，,；;]\s*(?:其他(?:条件和排序|条件及排序|条件|排序)?|其余(?:条件|排序)?)(?:保持)?不变)?'
+ match=re.fullmatch(pattern,answer)
+ if not match:return None
+ number=int(match.group(1));valid=1<=number<=100
+ return {'pending':copy.deepcopy(pending),'answer':question,'quantity':number,'valid':valid,'resolved_question':original[:span[0]]+str(number)+original[span[1]:] if valid else None}
 
 def make_slot(candidate,independent,comparison=None):
  for i,(a,b) in enumerate(zip(candidate,independent)):

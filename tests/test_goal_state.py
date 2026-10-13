@@ -1,5 +1,5 @@
 """验证未完成任务的持续状态和范围说明，不把单项成功当作整组完成。"""
-import copy,sys,unittest
+import copy,json,sys,unittest
 from pathlib import Path
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'backend'))
 from business_request import apply_delta,commit_state,compile_selected
@@ -126,5 +126,40 @@ class GoalStateTests(unittest.TestCase):
    with mockpatch('request_checklist.gate',side_effect=failure):out=model.bind_references(self.store,q,p,{})
    self.assertEqual(out['operation'],'clarify');self.assertIn('1至100',out['clarification']);self.assertIn('尚未执行',out['clarification']);self.assertNotIn('query',out)
   finally:model.TRACE.value=old
+
+ def sort_request_fixture(self,limit):
+  goal={**default_goal('search'),'kind':'sort','field':'time','direction':'desc','limit':limit}
+  request={'version':10,'mode':'new','roles':{'background':[],'output':[1],'control':[]},'tasks':[{'base':None,'action':'request','request_spans':[1],'spans':[1],'purpose':'data','subject_scope':'none','replace_task':False,'retain_filters':[],'set':{'operation':'search','target':'points','properties':[],'result_goal':goal},'filters':[]}]}
+  return goal,request
+ def test_main_semantic_quantity_boundary_cannot_be_repaired_to_a_different_number(self):
+  import model
+  from unittest.mock import patch as mockpatch,MagicMock
+  _,request=self.sort_request_fixture(101);q='全部测点按测量时间降序返回前101条'
+  response=MagicMock();response.__enter__.return_value.read.return_value=json.dumps({'choices':[{'finish_reason':'stop','message':{'content':json.dumps({'business_request':request,'legacy':None})}}]}).encode()
+  with mockpatch.dict(model.os.environ,{'DEEPSEEK_API_KEY':'synthetic','ICCM_REQUEST_ENGINE':'contract'}),mockpatch.object(model.urllib.request,'build_opener') as net:
+   net.return_value.open.return_value=response;out=model.interpret(q,{},None)
+   self.assertEqual(net.return_value.open.call_count,1);self.assertEqual(out['operation'],'clarify');self.assertNotIn('query',out)
+   self.assertEqual(model.get_trace()['business_request_extracted']['tasks'][0]['set']['result_goal']['limit'],101);self.assertNotIn('business_request_repair_raw',model.get_trace())
+ def test_independent_quantity_boundary_keeps_first_original_extraction_and_does_not_retry(self):
+  from request_checklist import extract
+  from business_request import RequestInvalid
+  from unittest.mock import patch as mockpatch,MagicMock
+  goal,_=self.sort_request_fixture(101);q='全部测点按测量时间降序返回前101条'
+  answer={'version':13,'roles':{'background':[],'output':[1],'control':[]},'status':'ready','mode':'new','tasks':[{'id':None,'action':'request','request_spans':[1],'kind':'query','purpose':'data','subject_scope':'none','spans':[1],'target':'points','properties':[],'unit':{'state':'none','value':''},'conditions':[],'result_goal':goal}],'clarification':''}
+  response=MagicMock();response.__enter__.return_value.read.return_value=json.dumps({'choices':[{'finish_reason':'stop','message':{'content':json.dumps(answer)}}]}).encode()
+  with mockpatch('urllib.request.build_opener') as net:
+   net.return_value.open.return_value=response
+   with self.assertRaises(RequestInvalid) as failure:extract(q,None)
+   self.assertEqual(net.return_value.open.call_count,1);self.assertEqual(failure.exception.business_constraint['code'],'sort_limit_bounds')
+   attempts=failure.exception.extraction_trace['attempts'];self.assertEqual(len(attempts),1);self.assertEqual(json.loads(attempts[0]['content'])['tasks'][0]['result_goal']['limit'],101)
+ def test_both_valid_quantity_boundaries_still_compile_without_repair(self):
+  import model
+  from unittest.mock import patch as mockpatch,MagicMock
+  for limit in (1,100):
+   _,request=self.sort_request_fixture(limit);q=f'全部测点按测量时间降序返回前{limit}条'
+   response=MagicMock();response.__enter__.return_value.read.return_value=json.dumps({'choices':[{'finish_reason':'stop','message':{'content':json.dumps({'business_request':request,'legacy':None})}}]}).encode()
+   with mockpatch.dict(model.os.environ,{'DEEPSEEK_API_KEY':'synthetic','ICCM_REQUEST_ENGINE':'contract'}),mockpatch.object(model.urllib.request,'build_opener') as net:
+    net.return_value.open.return_value=response;out=model.interpret(q,{},None)
+    self.assertEqual(net.return_value.open.call_count,1);self.assertEqual(out['result_goal']['limit'],limit)
 
 if __name__=='__main__':unittest.main()

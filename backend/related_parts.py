@@ -13,6 +13,13 @@ def execute_related_parts(store,intent):
     if len(classes)!=1:
         raise BusinessOutcome('not_found' if not classes else 'ambiguous', '本次导入的设备类数据中，未找到'+('名称' if q['equipment_class']['field']=='name' else '标识')+'为「'+q['equipment_class']['value']+'」的记录，因此无法继续统计其部件。请核对设备类名称或编码。' if not classes else '设备分类「'+q['equipment_class']['value']+'」对应多个编码，请指定分类编码。',q['equipment_class'],[{k:r[k] for k in ('tree','code','name')} for r in classes[:20]])
     cls=classes[0];evidence.append(store.ref(cls))
+    from relational_query import Graph,NodeRoleUnknown
+    graph=Graph(store)
+    try:selectors=graph.classify({'equipment_class':cls['code']})
+    except NodeRoleUnknown as error:
+        return dict(answer=str(error),status='data_insufficient',records=[],metrics=[],entity=entity,
+            scope=intent['scope'],path=[],query=q,note='保留原现场范围；角色未核实，不计算为零。',
+            evidence=evidence+([store.ref(error.config)] if error.config else []))
     tree=entity['tree']
     devices=store.rows("SELECT o.* FROM objects o WHERE o.tree=? AND o.level='设备' AND (o.code=? OR o.code IN (SELECT child FROM ancestors WHERE tree=? AND ancestor=?))",(tree,root['code'],tree,root['code']))
     def exact_config(obj):
@@ -24,7 +31,7 @@ def execute_related_parts(store,intent):
     selected=[]
     for device in devices:
         cfg=exact_config(device)
-        matches=cfg['code']==cls['code'] or bool(store.rows("SELECT 1 FROM ancestors WHERE tree='config' AND child=? AND ancestor=?",(cfg['code'],cls['code'])))
+        matches=graph.selected(graph.links(device),selectors)
         if matches:selected.append(device)
     parts={}
     terms,args=predicates({'target':'parts','filters':q['filters']},'c')

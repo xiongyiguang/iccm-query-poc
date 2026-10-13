@@ -13,6 +13,12 @@ class GoalConstraintError(ValueError):
  def __init__(self,message,constraint):
   super().__init__(message);self.business_constraint=copy.deepcopy(constraint)
 
+def constraint_feedback(error):
+ """业务能力边界不属于可让模型重写的结构错误。"""
+ constraint=getattr(error,'business_constraint',None)
+ if constraint!={'code':'sort_limit_bounds','minimum':1,'maximum':100}:return None
+ return {'operation':'clarify','entity':None,'scope':'direct','clarification':'当前排序数量支持1至100条；本次数量理解未通过核验，请明确该范围内的数量。尚未执行查询，原条件已保留。'}
+
 def default_goal(operation):
  return {'kind':'attributes' if operation=='attributes' else 'records','field':None,'direction':None,'limit':None,'ties':'all','operands':[],'basis':'measurement'}
 

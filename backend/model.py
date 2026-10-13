@@ -231,6 +231,25 @@ def interpret(question,context,selection,store=None):
     clear_verification()
     TRACE.value=None
     context=dict(context)
+    from clarification_state import resolve_quantity
+    quantity=resolve_quantity(question,context)
+    if quantity:
+        if not quantity['valid']:
+            from result_goal import GoalConstraintError,constraint_feedback
+            feedback=constraint_feedback(GoalConstraintError('数量范围',{'code':'sort_limit_bounds','minimum':1,'maximum':100}))
+            TRACE.value={'engine':'business_request','stage':'business_constraint','pending_constraint_request':quantity['pending'],'validated_intent':feedback}
+            return feedback
+        resumed=dict(context);resumed.pop('pending_constraint_request',None)
+        if resumed.get('pending_question')==quantity['pending']['question']:
+            resumed.pop('pending_question',None);resumed.pop('pending_reference',None)
+        if store is not None:
+            from request_checklist import business_catalog,literal_references
+            from request_gateway import reference_context
+            resumed['verified_schema']={'business_catalog':business_catalog(store),'literal_references':literal_references(quantity['resolved_question'],store)}
+            resumed['verified_references']=reference_context(resumed,selection,store,quantity['resolved_question'],resumed['verified_schema']['literal_references'])
+        plan=interpret(quantity['resolved_question'],resumed,selection,store)
+        TRACE.value['constraint_resolution']=quantity
+        return plan
     knowledge=context.pop('verified_knowledge',None)
     verified_schema=context.pop('verified_schema',None)
     verified_references=context.pop('verified_references',None)
@@ -358,6 +377,14 @@ def interpret(question,context,selection,store=None):
             return {'operation':'clarify','entity':None,'scope':'direct','clarification':str(error)}
         except (RequestInvalid,ValueError,TypeError,KeyError) as error:
             TRACE.value['business_request_validation_error']=str(error)
+            from result_goal import constraint_feedback
+            feedback=constraint_feedback(error)
+            if feedback:
+                TRACE.value.update(stage='business_constraint',business_constraint=copy.deepcopy(error.business_constraint),validated_intent=feedback)
+                from clarification_state import quantity_pending
+                pending=quantity_pending(question,TRACE.value.get('business_request_delta'),request_base)
+                if pending:TRACE.value['pending_constraint_request']=pending
+                return feedback
             repair_body={**route_body,'messages':route_body['messages']+[{'role':'assistant','content':route_raw['choices'][0]['message']['content']},{'role':'user','content':'业务请求未通过确定性校验：'+str(error)+' 请按同一原话及任务状态重新提取business_request，保持所有未修改条件；set可直接填类型化值，其来源由task.spans引用segments编号统一记录。不能重写quote。只能修正请求结构，不得改用legacy或生成执行计划。仅输出JSON。'}]}
             req=urllib.request.Request(ENDPOINT,data=json.dumps(repair_body,ensure_ascii=False).encode(),headers={'Authorization':'Bearer '+key,'Content-Type':'application/json'},method='POST')
             try:
@@ -372,7 +399,16 @@ def interpret(question,context,selection,store=None):
             except RequestAmbiguous as error:
                 TRACE.value['pending_business_request']=error.state
                 return {'operation':'clarify','entity':None,'scope':'direct','clarification':str(error)}
-            except (urllib.error.URLError,TimeoutError,ValueError,TypeError,KeyError) as error:raise PlanInvalid('请求变更未通过校验；原条件未修改。'+str(error)) from None
+            except (urllib.error.URLError,TimeoutError,ValueError,TypeError,KeyError) as error:
+                from result_goal import constraint_feedback
+                feedback=constraint_feedback(error)
+                if feedback:
+                    TRACE.value.update(stage='business_constraint',business_constraint=copy.deepcopy(error.business_constraint),validated_intent=feedback)
+                    from clarification_state import quantity_pending
+                    pending=quantity_pending(question,TRACE.value.get('business_request_delta'),request_base)
+                    if pending:TRACE.value['pending_constraint_request']=pending
+                    return feedback
+                raise PlanInvalid('请求变更未通过校验；原条件未修改。'+str(error)) from None
         TRACE.value.update(stage='complete',business_request_state=state,changed_tasks=changed,compiled_intent=copy.deepcopy(plan),validated_intent=plan)
         TRACE.value['reference_context']=verified_references
         return plan
@@ -463,6 +499,24 @@ def interpret(question,context,selection,store=None):
 def bind_references(store,question,plan,context=None):
     from request_gateway import clear_verification,migrate,seal,validate_categories
     clear_verification()
+    quantity=(get_trace() or {}).get('constraint_resolution')
+    if quantity:
+        from clarification_state import resolve_quantity
+        if resolve_quantity(question,context or {})!=quantity:raise PlanInvalid('数量澄清与当前待确认原话不一致，未执行。')
+        resumed=dict(context or {});resumed.pop('pending_constraint_request',None)
+        TRACE.value.pop('constraint_resolution')
+        try:bound=bind_references(store,quantity['resolved_question'],plan,resumed)
+        finally:TRACE.value['constraint_resolution']=quantity
+        if bound.get('operation')!='clarify':
+            children=[x['intent'] for x in bound['tasks']] if bound.get('operation')=='batch' else [bound]
+            sorts=[x.get('result_goal') for x in children if x.get('result_goal',{}).get('kind')=='sort']
+            if len(sorts)!=1 or sorts[0]['limit']!=quantity['quantity']:
+                clear_verification();raise PlanInvalid('数量澄清不得改写已确认数量；尚未执行查询。')
+        seal(store,question,bound)
+        return bound
+    if plan.get('operation')!='relational' and get_trace() is not None:
+        from relational_planner import ENTRY_TRACE
+        if getattr(ENTRY_TRACE,'value',None):get_trace()['relational_entry_review']=copy.deepcopy(ENTRY_TRACE.value)
     try:
         if plan.get('operation')=='relational':
             from relational_planner import bind
@@ -539,13 +593,16 @@ def _bind_references(store,question,plan):
         except (urllib.error.URLError,TimeoutError,ValueError,TypeError,KeyError,IndexError) as error:
             TRACE.value['checklist_error']={'type':type(error).__name__,'reason':str(error)}
             if hasattr(error,'extraction_trace'):TRACE.value['checklist_failure']=error.extraction_trace
-            constraint=getattr(error,'business_constraint',None)
-            if constraint=={'code':'sort_limit_bounds','minimum':1,'maximum':100}:
+            from result_goal import constraint_feedback
+            feedback=constraint_feedback(error)
+            if feedback:
                 # 只采用程序产生的能力约束，不根据模型错误文字判断业务。
-                TRACE.value['business_constraint']=copy.deepcopy(constraint)
-                result={'operation':'clarify','entity':None,'scope':'direct','clarification':'当前排序数量支持1至100条；本次数量理解未通过核验，请明确该范围内的数量。尚未执行查询，原条件已保留。'}
-                TRACE.value['validated_intent']=result
-                return result
+                TRACE.value['business_constraint']=copy.deepcopy(error.business_constraint)
+                TRACE.value['validated_intent']=feedback
+                from clarification_state import quantity_pending
+                pending=quantity_pending(question,getattr(error,'constraint_delta',TRACE.value.get('business_request_delta')),TRACE.value.get('business_request_previous'))
+                if pending:TRACE.value['pending_constraint_request']=pending
+                return feedback
             raise PlanInvalid('独立条件核对未完成；未执行查询，请重试。') from None
         TRACE.value['checklist_review']={k:v for k,v in checked.items() if k not in ('plan','state','changed','delta')}
         if checked['decision']!='accept' or checked.get('needs_review'):

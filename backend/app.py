@@ -251,6 +251,8 @@ class Handler(BaseHTTPRequestHandler):
                     if mode in ('model','confirmed'):
                         from business_request import commit_state
                         session['context']=commit_state(session['context'],planning_trace,result,context)
+                        from relational_planner import remember_context
+                        remember_context(context,session['context'],question)
                         session['dialogue']=(session.get('dialogue',[])+[{'question':question,'answer':('；'.join(item['task_question']+'：'+item['answer'] for item in result['items']) if result['status']=='batch' else result['answer'])[:600]}])[-6:]
                 response_payload={**public_result(result),'result':rid,'mode':mode,'context':session['context'],'server_ms':elapsed,'timings_ms':{'planning':round((planning_done-start)*1000),'execution':round((execution_done-planning_done)*1000)},'continuation':snapshot(sid,session,store.version),'version':store.version,**({'trace':planning_trace} if mode in ('model','confirmed') and body.get('trace') is True else {}),**({'review_confirmation':{'id':planning_trace['review_id'],'question':question,'preparation_ms':planning_trace['review_preparation_ms'],'system_total_ms':planning_trace['review_preparation_ms']+elapsed}} if mode=='confirmed' else {})}
                 # 状态和续问签名均已完成，发送前允许下一请求接续。
