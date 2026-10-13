@@ -22,8 +22,8 @@
   "business_change": false,
   "confirmation_ref": "2026-10-13最新用户明确授权本轮真实脱敏DeepSeek问答及集中修复",
   "validation_plan": "原CSV独立预期和冻结判据；腾讯云r14首测保留原失败；受影响角色矩阵、客户原题、旧48/新48/历史117同候选回归，未参与修复新单轮题再验证",
-  "execution_status": "r15发布准备；C15运行/验证源与完整通过证据一致，提交推送、Git制品校验、正式切换及部署后客户原题复测按发布记录执行。",
+  "execution_status": "r15正式发布完成：运行0592827已推送；与C15已验证214/336文件一致，同内容目标975/135及真实308/308证据复用，正式部署后客户6/6、公网页面3/3、认证及Git资源通过，数据配置保持，r14保留；复杂多轮暂缓。",
   "previous_change_path": "docs/.staging/single-role-blind-20261013/previous-change.json",
-  "verification_source": "docs/06-测试与验收/单轮设备关联盲测-20261013.md",
+  "verification_source": "docs/07-部署与运维/r15发布记录-20261013.md",
   "release_authorization": "本轮最新用户明确授权C15提交推送和腾讯云正式部署，覆盖前一轮未发布阶段限制；当前release_authorized=true，实际上线及客户原题复测另核验。"
 }
