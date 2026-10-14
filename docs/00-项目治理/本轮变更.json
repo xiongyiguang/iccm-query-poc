@@ -25,7 +25,9 @@
   "confirmation_ref": "当前用户“提交 推送 部署”；本会话既有公开仓库目的地及DeepSeek必要脱敏载荷授权。",
   "publication_authorized_for_new_candidate": true,
   "validation_plan": "共同遗漏反例、HTTP拒绝及状态保护、全部常规离线、代码冻结后新题三轮、历史257及原17；原失败与原判据保留。",
-  "execution_status": "发布准备中；本机冻结验收通过，部署前云端r18指纹核验通过，未切换。",
+  "execution_status": "运行8a3b58b已提交推送及部署r19；目标1191及前端通过，公网原17/17与本轮本机17/17一致，实际页面通过；数据、导入、配置不变，r18完整保留；临时服务/隧道关闭。",
   "evidence_path": "docs/07-部署与运维/r19发布记录-20261014.md",
-  "validation_manifest": "docs/.staging/release-r19-20261014/final-release-verification.json"
+  "validation_manifest": "docs/.staging/release-r19-20261014/final-release-verification.json",
+  "runtime_commit": "8a3b58b139161065f3249d3913e1b7f4af5a1707",
+  "deployment_release": "/opt/iccm-8899/releases/20261014-r19"
 }
