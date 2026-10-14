@@ -78,6 +78,13 @@ class Handler(BaseHTTPRequestHandler):
             return self.send(404,{'error':'未找到页面'})
         except (QueryError,ValueError) as e: return self.send(400,{'error':str(e)})
 
+    def failure_snapshot(self,payload,body,session):
+        with LOCK:
+            sid=(body or {}).get('session')
+            if session and SESSIONS.get(sid) is session and not session.get('busy'):
+                payload.update(context=copy.deepcopy(session['context']),version=STORE.version,continuation=snapshot(sid,session,STORE.version))
+        return payload
+
     def do_POST(self):
         global STORE
         if not self.allowed_host():return self.send(403,{'error':'请求来源无效。'})
@@ -270,7 +277,7 @@ class Handler(BaseHTTPRequestHandler):
             if 'body' in locals() and body.get('trace') is True:
                 payload['diagnostic']=locals().get('execution_diagnostic',{'stage':'request_validation'})
                 if body.get('intent') is None and 'execution_diagnostic' in locals():payload['trace']=get_trace()
-            return self.send(400,payload)
+            return self.send(400,self.failure_snapshot(payload,locals().get('body'),locals().get('session')))
         except ModelUnavailable as e:
             invalid=isinstance(e,PlanInvalid)
             payload={'error':str(e),'model_unavailable':not invalid,
@@ -279,7 +286,7 @@ class Handler(BaseHTTPRequestHandler):
             # 按需启用的诊断信息与成功结果跟踪使用相同的鉴权接口。
             if body.get('intent') is None and body.get('trace') is True:
                 payload['trace']=get_trace()
-            return self.send(422 if invalid else 503,payload)
+            return self.send(422 if invalid else 503,self.failure_snapshot(payload,locals().get('body'),locals().get('session')))
         except Exception:
             return self.send(500,{'error':'查询失败，未更新上下文。请检查本机运行状态。'})
 

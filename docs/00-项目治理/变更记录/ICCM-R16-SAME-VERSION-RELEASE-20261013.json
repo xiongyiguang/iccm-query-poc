@@ -1,0 +1,32 @@
+{
+  "change_id": "ICCM-R16-SAME-VERSION-RELEASE-20261013",
+  "request_ref": "新48旧48历史117在同一修复版本跑完，允许DeepSeek；全部通过后提交推送GitHub部署腾讯云，再复测客户两原题",
+  "baseline_path": "docs/06-测试与验收/r15固定版本单轮重复盲测-20261013.md",
+  "baseline_version": "workspace-r15-repeat-fix-2，215运行文件；本机HEAD e2c97ae，正式r15运行0592827",
+  "scope": "先同冻结候选完成原三套213步；全部通过才提交推送当前代码及配套文档，Git制品哈希一致后切换腾讯云r16，部署后客户原题及直属对照与公网验证；复杂多轮只回归不重设计",
+  "impact_reason": "补全上轮限定单轮修复的真实历史门禁，核对完整兼容后正式上线",
+  "impacted_gates": [
+    "architecture_confirmed",
+    "data_design_confirmed",
+    "ai_boundary_confirmed",
+    "test_plan_confirmed",
+    "regression_boundary_confirmed",
+    "release_authorized"
+  ],
+  "affected_modules": [
+    "backend",
+    "ai",
+    "tests",
+    "docs",
+    "deployment"
+  ],
+  "high_risk": false,
+  "business_change": false,
+  "confirmation_ref": "最新用户明确条件授权：三套全部通过后提交推送GitHub、部署腾讯云并复测客户两原题",
+  "publication_authorized_for_new_candidate": true,
+  "validation_plan": "最终同冻结c3完整新48旧48历史117及单轮36、目标1018/135和前端；Git制品与候选一致后提交部署；正式客户6与公网3、原数据配置核验、保留r15",
+  "execution_status": "r16已提交推送并部署腾讯云正式服务，运行74fb1b1；同版新48/48、旧48/48、历史117/117与单轮36/36、目标1018/135及前端通过；部署后客户6/6、公网3/3，数据配置不变，复杂多轮新设计暂缓。",
+  "evidence_path": "docs/07-部署与运维/r16发布记录-20261013.md",
+  "runtime_commit": "74fb1b1e2d3253b780e162e748d6c8269a7634d6",
+  "formal_release": "20261013-r16"
+}

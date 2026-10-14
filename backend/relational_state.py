@@ -72,6 +72,8 @@ def exact_literal(tree,field,value,text,question,context,store):
                     same_focus=same_focus or any(r and r=={'tree':tree,'field':field,'value':value} for r in actual_roots)
             entity=context.get('entity') or {}
             same_focus=same_focus or entity.get('tree')==tree and entity.get(field)==value
+            from relational_continuity import continued_collection_tree
+            same_focus=same_focus or continued_collection_tree(question,context,store,value)==tree
             if not same_focus and not any(h.lower() in explicit.lower() for h in TREE_HINTS[tree]):
                 raise RelationalHandoff('本轮新标识跨树命中，旧对象不能替它选择对象域。')
     return {'tree':tree,'field':field,'value':value}

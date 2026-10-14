@@ -73,6 +73,8 @@ def normalize_delta(raw,question,context,store=None):
     from relational_input_bindings import complete_task_source,explicit_relation_read
     complete_task_source(value,question,audit)
     explicit_relation_read(value,question,context,store,audit)
+    from relational_continuity import collection_continuity
+    collection_continuity(value,question,context,store,audit)
     old=previous_tasks(context)
     independent_association=False
     controls=control_text(question)
@@ -594,4 +596,7 @@ def normalize_delta(raw,question,context,store=None):
             _,protected=retain_unchanged_tasks({'handled':True,'tasks':[{'id':t['id'],'spec':copy.deepcopy(t['spec'])} for t in old.values()]},question,context)
             if not protected and p.get('action')!='retain':
                 value['mode']='new';p['action']='new';audit.append('明确结束实例集合并返回实际历史原记录，统一表示后清除旧实例分类/过滤，不推广未执行身份')
+    # 包装字段、空副根与默认列规范化完成后，再按同一个连续集合契约核对。
+    # 不让主/独立提取的等价填满表示绕过程序维护的范围。
+    collection_continuity(value,question,context,store,audit)
     return value,audit

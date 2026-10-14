@@ -70,6 +70,17 @@ retain 不重建状态，也不能授权任何输出。"""
         require(isinstance(spans,list) and all(i in spans for i in ids),'任务spans必须包含其请求动作片段。')
         covered.update(ids);task.pop('action');task['execute']=True
         task['request_quote']=question[min(segments[i]['start'] for i in ids):max(segments[i]['end'] for i in ids)]
+        # 只归一模型提取中的无损整数表示；执行API和旧类型化契约仍严格要求int。
+        # 数量必须在本任务当前原话中明确出现，不能借对象名字、旧任务或另一模型补值。
+        fields=task.get('set')
+        goals=[task.get('result_goal'),fields.get('result_goal') if isinstance(fields,dict) else None]
+        text=re.sub(r'“[^”]*”|「[^」]*」|『[^』]*』|\"[^\"]*\"|`[^`]*`','',task['request_quote'])
+        text=re.sub(r'(?:名字(?:叫|为)|名称(?:为|是)|名为|编码(?:为|是))[^，。；;！？!?]*','',text)
+        if not re.search(r'不要|取消|撤销|不再|不返回|不取|只保留|仅保留',text):
+            for goal in goals:
+                number=goal.get('limit') if isinstance(goal,dict) else None
+                if goal and goal.get('kind')=='sort' and isinstance(number,str) and re.fullmatch(r'0|[1-9]\d{0,3}',number):
+                    if re.search(r'(?:前|返回|取|显示|输出|列出)\s*'+re.escape(number)+r'\s*(?:条|个|项|组)(?![0-9])',text):goal['limit']=int(number)
     require(covered==set(requested) or out.get('status')=='unsupported' and out['tasks']==[],
             '以下输出动作尚未对应request任务：'+json.dumps(sorted(set(requested)-covered))+'。若只限定条件或保留状态，应归control而非output；若确需输出，必须完整列出任务，不能漏做。')
     return out
@@ -502,6 +513,8 @@ def commit_state(context, trace, result, previous=None):
     """成功回执和未完成草稿分开提交；只完成本轮实际交付的任务。"""
     if (trace or {}).get('engine')=='relational_request':
         if result.get('relational_state'):context['relational_state']=copy.deepcopy(result['relational_state'])
+        if result.get('status')=='ok':
+            for key in ('pending_business_request','pending_slot','pending_request','pending_question','pending_reference','relational_pending_question','relational_pending_questions'):context.pop(key,None)
         return context
     trace=trace or {};state=trace.get('business_request_state')
     success=result.get('status')=='ok' or (result.get('status')=='batch' and all(i.get('status')=='ok' for i in result.get('items',[])))

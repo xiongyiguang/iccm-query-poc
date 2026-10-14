@@ -389,8 +389,8 @@ def canonical_tasks(state,changed,store):
                     if suggestion:field='unresolved_identity_suggestion';value=suggestion
             fs.append((field,op,value))
         if t['target']=='points':
-            from date_fields import canonical_year_filters
-            fs=canonical_year_filters(fs,store)
+            from date_fields import canonical_year_filters,canonical_time_filters
+            fs=canonical_time_filters(canonical_year_filters(fs,store))
         target=t['target']
         # 跨树精确身份定位只有命中唯一原对象时，才与其实际树等价。
         # 不改变执行计划；多对象、列表、额外筛选仍保留原域差异。

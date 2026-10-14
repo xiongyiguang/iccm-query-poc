@@ -20,7 +20,7 @@ def required_relation(question,context):
     if context.get('relational_state') and __import__('re').fullmatch(r'\s*设备类(?:表|字典)?(?:呢)?[？?。]?\s*',question):return True
     from relational_input_bindings import site_population
     if site_population(question) and __import__('re').search(r'PBS|构型|设备类|部件类',question):return True
-    graph_goal=__import__('re').search(r'下级|直属|直接(?:部件|设备|对象)|后代|现场部件|现场设备|真实父|精确关联|对应.*(?:构型|设备类|部件类)|所属.*(?:设备类|部件类)|原记录|原行',question)
+    graph_goal=__import__('re').search(r'下级|下(?:面)?(?:有|的)|直属|直接(?:部件|设备|对象)|后代|现场部件|现场设备|真实父|精确关联|对应.*(?:构型|设备类|部件类)|所属.*(?:设备类|部件类)|原记录|原行',question)
     if graph_goal and (__import__('re').search(r'PBS|构型|设备类|部件类|源系统|完整编码',question) or context.get('relational_state')):return True
     patterns=(r'(?:按|部件)(?:对象类型|部件类|部件类别|类别|类型|来源|源系统|功能位置).*(?:分组|分布|统计|分别.*多少|各.*数量)',
               r'部件类别.*(?:数量|前[0-9一二三四五六])',r'设备类.*(?:现场设备|现场部件)',
@@ -281,7 +281,8 @@ def data_prerequisite(question,context,store):
 
 def interpret(question,context,key,store=None):
     from model import MODEL
-    context=copy.deepcopy(context)
+    from relational_continuity import prepared_context
+    context=prepared_context(context,store)
     ENTRY_TRACE.value=None
     context['relational_required']=required_relation(question,context)
     if store is not None:
@@ -299,7 +300,7 @@ def interpret(question,context,key,store=None):
             from relational_capabilities import reference_capabilities
             context['relational_reference_capabilities']=reference_capabilities(store,context['relational_literal_references'])
         context['relational_condition_values']={field:[r['value'] for r in store.rows('SELECT DISTINCT '+column+' AS value FROM points WHERE '+column+"!='' ORDER BY "+column)] for field,column in [('source','system'),('switch','switch'),('status','status')]}
-    if not context.get('relational_state') and (context.get('business_request') or context.get('pending_business_request')) and not context['relational_required'] and __import__('re').search(r'取消|撤销|撤掉|保留|仍|再限定|只看|这些|其余',question):
+    if not context.get('relational_state') and (context.get('business_request') or context.get('pending_business_request')) and not context['relational_required']:
         ENTRY_TRACE.value={'reason':'existing_business_owner','basis':'实际普通查询任务持有旧条件；未引入新的图关联目标，本轮续改由该任务状态机处理'}
         return None
     candidate_trace={};candidate=extract(question,context,key,MODEL,candidate_trace,_store=store)
@@ -371,6 +372,13 @@ def interpret(question,context,key,store=None):
 
 def bind(store,question,plan,context,trace):
     from request_gateway import seal
+    from relational_continuity import prepared_context,pending_scope
+    if trace.get('stage')=='programmatic_pending_scope':
+        if pending_scope(question,context or {},store)!=plan:raise ValueError('待澄清任务和补答发生变化，未执行。')
+        validate_plan(plan);seal(store,question,plan)
+        trace['gateway']={'status':'verified','entry':'pending_scope','draft_root_rechecked':True}
+        return plan
+    context=prepared_context(context or {},store)
     if trace.get('engine')!='relational_request' or trace.get('source_question')!=question or trace.get('validated_intent')!=plan:raise ValueError('关系计划在独立核验后改变，未执行。')
     if trace.get('stage')=='programmatic_data_prerequisite':
         guarded=data_prerequisite(question,context or {},store)

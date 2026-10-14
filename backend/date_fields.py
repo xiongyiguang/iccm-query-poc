@@ -74,6 +74,16 @@ def canonical_year_filters(filters,store):
     fs.remove((field,op,value));fs.append(('time','calendar_month' if len(parts)==2 else 'calendar_day',value))
  return fs
 
+def canonical_time_filters(filters):
+ """只在语义签名归一时刻，不改变日期范围原文和原日历归一接口。"""
+ fs=list(filters)
+ # 时刻按时区和无损精度比较；日历日期由半开区间规则负责。
+ for index,(field,op,value) in enumerate(fs):
+  if field=='time' and op in DATE_OPS and calendar_period(value) is None:
+   parsed=parse_time(value)
+   if parsed is not None:fs[index]=(field,op,parsed.isoformat())
+ return fs
+
 def calendar_period(value):
  """日期等于按明确的年、月、日精度比较，带时间仍精确比较瞬间。"""
  import re

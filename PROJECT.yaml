@@ -11,10 +11,10 @@ project:
   type: "客户POC技术原型"
   shape: "本机与腾讯云演示Web智能问数助手"
   delivery_goal: "稳定单表及基础多表关联查询，r16已发布并客户原题复测通过；复杂多轮暂缓"
-  stage: "r16已提交推送并部署腾讯云正式服务，运行74fb1b1；同版新48/48、旧48/48、历史117/117与单轮36/36、目标1018/135及前端通过；部署后客户6/6、公网3/3，数据配置不变，复杂多轮新设计暂缓。"
+  stage: "测试情况4本机公共机制修复完成：fixed8原17/17、真实257/257、离线1053/135及异常历史浏览器通过；已获本轮提交推送及r17部署复测授权，正在发布；跨登录历史暂不处理。正式r16发布事实见原记录，复杂多轮新设计仍暂缓。"
   owner: "用户负责业务确认，Codex负责设计实现"
   created_at: "2026-09-14"
-  updated_at: "2026-10-13"
+  updated_at: "2026-10-14"
 
 scope:
   data_classification: "客户脱敏POC数据，只读引用"
@@ -61,7 +61,7 @@ governance:
   vertical_slice_defined: true
   interaction_baseline_confirmed: true
   test_plan_confirmed: true
-  # 本轮用户明确三套同版全部通过后提交推送部署，条件已满足，见r16发布记录。
+  # 2026-10-14用户明确授权fixed8提交推送及腾讯云r17部署复测。
   release_authorized: true
 
 template_changelog:

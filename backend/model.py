@@ -231,6 +231,18 @@ def interpret(question,context,selection,store=None):
     clear_verification()
     TRACE.value=None
     context=dict(context)
+    if store is not None:
+        from query_scope import public_request
+        scoped=public_request(question,context,store)
+        if scoped:
+            plan=validate(scoped)
+            TRACE.value={'engine':'table_scope','source_question':question,'validated_intent':copy.deepcopy(plan),'context_route':{'decision':{'needs_history':False}}}
+            return plan
+        from relational_continuity import pending_scope
+        resumed=pending_scope(question,context,store)
+        if resumed:
+            TRACE.value={'engine':'relational_request','source_question':question,'stage':'programmatic_pending_scope','validated_intent':copy.deepcopy(resumed),'context_route':{'decision':{'needs_history':True}}}
+            return resumed
     from clarification_state import resolve_quantity
     quantity=resolve_quantity(question,context)
     if quantity:
@@ -499,6 +511,13 @@ def interpret(question,context,selection,store=None):
 def bind_references(store,question,plan,context=None):
     from request_gateway import clear_verification,migrate,seal,validate_categories
     clear_verification()
+    if (get_trace() or {}).get('engine')=='table_scope':
+        from query_scope import public_request
+        actual=public_request(question,context or {},store)
+        if actual is None or validate(actual)!=plan:raise PlanInvalid('目录范围或原始输入已变化，未执行。')
+        seal(store,question,plan)
+        TRACE.value['gateway']={'status':'verified','entry':'programmatic_scope','data_rechecked':True}
+        return plan
     quantity=(get_trace() or {}).get('constraint_resolution')
     if quantity:
         from clarification_state import resolve_quantity

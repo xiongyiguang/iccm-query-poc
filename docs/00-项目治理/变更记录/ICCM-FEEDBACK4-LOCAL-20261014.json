@@ -1,0 +1,31 @@
+{
+  "change_id": "ICCM-FEEDBACK4-20261014",
+  "request_ref": "修复测试情况4的公共机制；原连续问答复测及历史回归；跨登录历史暂不考虑；不部署。用户另行明确允许本轮api.deepseek.com真实复测。",
+  "baseline_path": "docs/07-部署与运维/r16发布记录-20261013.md",
+  "baseline_version": "r16运行74fb1b1；最终本机冻结workspace-feedback4-fixed8-not-a-git-commit",
+  "scope": "本机公共状态绑定、异常历史、时间归一及全表范围；不改客户CSV、不启停既有服务、不提交推送或部署",
+  "impact_reason": "原17步隔离真实复现7通过10失败；根对象串用及跨入口状态失配属于系统性问题",
+  "impacted_gates": [
+    "architecture_confirmed",
+    "data_design_confirmed",
+    "ai_boundary_confirmed",
+    "test_plan_confirmed",
+    "regression_boundary_confirmed",
+    "interaction_baseline_confirmed"
+  ],
+  "affected_modules": [
+    "backend",
+    "frontend",
+    "ai",
+    "tests",
+    "docs"
+  ],
+  "high_risk": false,
+  "business_change": false,
+  "confirmation_ref": "本轮用户明确修复授权和DeepSeek出站授权",
+  "publication_authorized_for_new_candidate": false,
+  "validation_plan": "保留全部首测和中间失败；最终同版原17、新48旧48历史117及客户角色基础共257、普通1053共享135、实际异常历史浏览器；各组内部原顺序与原判据。",
+  "execution_status": "本机公共机制修复与本轮验证完成；fixed8原17/17、完整真实257/257、普通离线1053/1053、共享135/135及异常历史浏览器通过。未提交推送部署，跨登录历史排除。",
+  "evidence_path": "docs/06-测试与验收/测试情况4公共机制修复-20261014.md",
+  "validation_manifest": "docs/.staging/feedback4-20261014/final-validation.json"
+}
