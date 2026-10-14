@@ -243,7 +243,8 @@ def compile_delta(payload,question,context,store=None):
         text=re.sub(r'“[^”]*”|「[^」]*」|『[^』]*』|\"[^\"]*\"|`[^`]*`','',question)
         text=re.sub(r'(?:名字(?:叫|为)|名称(?:为|是)|名为|编码(?:为|是))[^，。；：:]*','',text)
         continues=re.search(r'刚才|上(?:一轮|条|轮)|这些|其中|同样|同一|这个(?:结果|范围)|该范围|保留|仍|继续',text)
-        restarts=re.search(r'另查|另外(?:查|查询)|另一个问题|新问题|另起|回到|返回|重新开始',text)
+        from request_turn import independent
+        restarts=independent(question) or re.search(r'另查|另外(?:查|查询)|另一个问题|新问题|另起|回到|返回|重新开始',text)
         if continues and not restarts:raise ValueError('本轮明确引用既有结果或保留条件，不能整组new清空历史；使用update变更。')
     tasks={tid:{'id':tid,'spec':copy.deepcopy(t['spec'])} for tid,t in old.items()} if mode=='update' else {}
     changed=[];seen=set();audit=[]
@@ -280,7 +281,8 @@ def compile_delta(payload,question,context,store=None):
         if 'depth' in fields and fields['depth']!='keep':
             d=fields['depth'];markers={'self':('自身','本身','本对象'),'direct':('直属','直接下级','直接部件','直接设备','直接对象','下一层','直接子'),'all':('全部','所有','后代','深层','全层级')}
             if d not in markers or not any(w in text for w in markers[d]):raise ValueError('改变深度没有对应本轮范围原话依据。')
-            if d in ('self','direct') and re.search(r'全部(?:后代|下级)|所有(?:后代|下级)|自身及全部后代',text):raise ValueError('不能把完整后代范围缩成自身或直属。')
+            from request_turn import positive_scope_text
+            if d in ('self','direct') and re.search(r'全部(?:后代|下级)|所有(?:后代|下级)|自身及全部后代',positive_scope_text(text)):raise ValueError('不能把完整后代范围缩成自身或直属。')
         for key in ('root','compare_root'):
             if key in p:q[key]=reference(p[key],question,context,store)
         if 'target_tree' in fields and fields['target_tree'] not in (None,'keep'):

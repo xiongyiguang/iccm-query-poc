@@ -34,9 +34,20 @@ def domain_clarification(question,context,store):
     labels={'config':'构型树','pbs':'PBS树','equipment_class':'设备类表','part_class':'部件类表','points':'测点表'}
     return {'operation':'clarify','entity':None,'scope':'direct','clarification':'该标识在多个数据表中存在，请确认您指的是'+ '、'.join(labels.get(d,d) for d in sorted(domains))+'中的哪个对象。尚未执行查询。'}
 
-def public_request(question,context,store):
+def public_transition(question,context,store):
+    from query_slots import resume,missing_root,frame_from_domain
+    resumed=resume(question,context,store)
+    if resumed:return resumed
     if not context.get('pending_business_request') and question.strip().strip('。！？!?') in ('直接下级','直属','全部下级','所有下级'):
         receipt=context.get('query_receipt') or {};query=receipt.get('query') or {}
         if receipt.get('operation')=='search' and receipt.get('resolved_entity') is None and query.get('target') in TABLES and query.get('filters')==[]:
-            return {'operation':'clarify','entity':None,'scope':'direct','clarification':'刚才查询的是整张数据表。请指定要查看下级的根对象；尚未执行新的查询。'}
-    return table_count(question,store) or domain_clarification(question,context,store)
+            return {'plan':{'operation':'clarify','entity':None,'scope':'direct','clarification':'刚才查询的是整张数据表。请指定要查看下级的根对象；尚未执行新的查询。'},'pending':None,'resumed':False}
+    count=table_count(question,store)
+    if count:return {'plan':count,'pending':None,'resumed':False}
+    domain=domain_clarification(question,context,store)
+    if domain:return {'plan':domain,'pending':frame_from_domain(question,store),'resumed':False}
+    return missing_root(question,context,store)
+
+def public_request(question,context,store):
+    transition=public_transition(question,context,store)
+    return transition['plan'] if transition else None

@@ -30,5 +30,13 @@ const tick=()=>new Promise(resolve=>setImmediate(resolve));
  assert.equal(vm.runInContext('context.pending_request.query.filters[0].operator',a.context),'is_blank');
  a.context.scopedResult={status:'ok',answer:'filtered',total:0,records:[],metrics:[],context:{query:{target:'points',filters:[{field:'status',operator:'equals',value:'已报警'}]}},business_scope:'测点记录 · 按所述条件查询'};
  assert.ok(!textOf(vm.runInContext('render(scopedResult,"filtered")',a.context)).includes('查询范围：全部测点'));
- console.log('PASS: HTTP bootstrap, device query, new conversation, random IDs, connection failure, computed vs empty result');
+ // 业务总数与历史首屏缓存分开；历史不能凭缺失缓存启用下一页。
+ a.context.manyResult={status:'ok',answer:'many',total:77,records:Array.from({length:20},(_,i)=>({cells:[String(i)]})),metrics:[],columns:['编码'],context:{}};
+ const preview=vm.runInContext('historySnapshot(manyResult)',a.context);
+ assert.equal(preview.total,77);assert.equal(preview.preview_total,20);assert.equal(preview.history_preview,true);
+ assert.equal(a.context.manyResult.total,77);assert.equal(a.context.manyResult.history_preview,undefined);
+ a.context.preview=preview;
+ const historyCard=vm.runInContext('render(preview,"history")',a.context);
+ assert.ok(textOf(historyCard).includes('共 77 条 · 历史展示 20 条'));
+ console.log('PASS: HTTP bootstrap, device query, new conversation, random IDs, connection failure, computed vs empty result, historical totals');
 })().catch(e=>{console.error(e.message);process.exitCode=1});

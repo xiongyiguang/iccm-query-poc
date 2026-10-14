@@ -230,13 +230,17 @@ def interpret(question,context,selection,store=None):
     from request_gateway import clear_verification
     clear_verification()
     TRACE.value=None
-    context=dict(context)
+    received_context=copy.deepcopy(context)
+    from request_turn import planning_context
+    context=planning_context(question,context,store)
     if store is not None:
-        from query_scope import public_request
-        scoped=public_request(question,context,store)
+        from query_scope import public_transition
+        scoped=public_transition(question,context,store)
         if scoped:
-            plan=validate(scoped)
-            TRACE.value={'engine':'table_scope','source_question':question,'validated_intent':copy.deepcopy(plan),'context_route':{'decision':{'needs_history':False}}}
+            plan=validate(scoped['plan'])
+            TRACE.value={'engine':'table_scope','source_question':question,'validated_intent':copy.deepcopy(plan),
+                         'pending_public_query':copy.deepcopy(scoped['pending']),
+                         'context_route':{'decision':{'needs_history':bool(scoped['resumed'] or context.get('pending_public_query'))}}}
             return plan
         from relational_continuity import pending_scope
         resumed=pending_scope(question,context,store)
@@ -293,7 +297,8 @@ def interpret(question,context,selection,store=None):
     from request_checklist import prefetch
     prefetch(question,request_base,verified_schema,verified_references)
     from business_request import extraction_context
-    extraction_input=extraction_context(context) if request_engine else context
+    # 兼容路由仍接收调用者的完整未决事实；独立请求的执行所有者已在上游解除。
+    extraction_input=extraction_context(context) if request_engine else received_context
     if True:
         from attributes import CATALOG
         from typed_fields import NUMERIC_FIELDS
@@ -511,6 +516,8 @@ def interpret(question,context,selection,store=None):
 def bind_references(store,question,plan,context=None):
     from request_gateway import clear_verification,migrate,seal,validate_categories
     clear_verification()
+    from request_turn import planning_context
+    context=planning_context(question,context or {},store)
     if (get_trace() or {}).get('engine')=='table_scope':
         from query_scope import public_request
         actual=public_request(question,context or {},store)

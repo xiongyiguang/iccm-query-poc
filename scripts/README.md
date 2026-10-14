@@ -4,7 +4,7 @@
 
 `macos-demo.py`读取本项目 `.local/deepseek-macos.key` 安全注入普通服务，优先使用Codex配套Python，复用已有8765服务，日志和PID保存在.local。它不自动加载.env。根目录 `打开演示.command` 调用此脚本并打开浏览器。
 
-`agent_demo/启动智能体.command`运行独立8771服务，要求Python 3.11+和已登录本机Codex。跨平台直接运行backend/app.py或agent_demo/server.py；具体参数、文件关系和测试见[运行手册](../docs/07-部署与运维/监控与运行手册.md)。
+独立智能体于2026-10-14退出维护，`agent_demo/启动智能体.command`与server.py命令入口均只提示停用。跨平台只运行backend/app.py；具体参数、文件关系和测试见[运行手册](../docs/07-部署与运维/监控与运行手册.md)。
 
 以下PowerShell初始化及模板门禁为保留工程工具，本轮只翻译说明性注释，未在Mac执行PowerShell完整门禁。新环境不要对已经初始化的仓库重复运行Initialize-Project.ps1。
 
@@ -12,7 +12,7 @@
 
 以下记录保留各自日期的实现、环境、验证及限制；其中“当前”不表示2026-10-08交接状态。当前状态以文首及当前唯一源为准。
 
-当前本机为 macOS：日常启动使用项目根目录 `打开演示.command`（调用 `macos-demo.py`），独立智能体使用 `agent_demo/启动智能体.command`。下面 PowerShell 工程母版脚本为保留的历史工具，不是 Mac 日常启动依赖；本轮未迁移或运行其完整门禁检查器。
+当前本机为 macOS：日常启动使用项目根目录 `打开演示.command`（调用 `macos-demo.py`）；独立智能体入口已停用。下面 PowerShell 工程母版脚本为保留的历史工具，不是 Mac 日常启动依赖；本轮未迁移或运行其完整门禁检查器。
 
 本目录面向软件研发母版和业务项目，入口规则唯一源为 docs/00-项目治理/分级执行与裁剪规则.md。
 

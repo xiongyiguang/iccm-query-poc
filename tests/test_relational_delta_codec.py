@@ -605,6 +605,20 @@ class AssociationAndComparisonDelivery(unittest.TestCase):
   raw=self.raw(quote=text,set={'kind':'compare','population':'parts'},root={'type':'literal','tree':'config','field':'code','value':'D','quote':'构型D'},compare_root={'type':'role','task':1,'role':'root','quote':'刚才两套部件集合'})
   v,_=self.run_delta(raw,ctx,text);self.assertEqual(v['tasks'][0]['spec']['root']['tree'],'pbs');self.assertEqual(v['tasks'][0]['spec']['compare_root']['tree'],'config')
 
+
+ def test_synthetic_literal_quote_uses_proved_current_source(self):
+  text='查询PBS中的L&D下级部件'
+  raw=self.raw(action='new',quote=text,set={'kind':'collection','population':'parts'},root={'type':'literal','tree':'pbs','field':'code','value':'L&D','quote':'PBS L&D'});raw['mode']='new'
+  v,a=self.run_delta(raw,{},text);self.assertEqual(v['tasks'][0]['spec']['root']['value'],'L&D');self.assertTrue(any('真实引文' in x for x in a))
+ def test_synthetic_literal_quote_cannot_import_absent_old_code(self):
+  text='查询PBS中的L下级部件'
+  raw=self.raw(action='new',quote=text,set={'kind':'collection','population':'parts'},root={'type':'literal','tree':'pbs','field':'code','value':'L&D','quote':'PBS L&D'});raw['mode']='new'
+  with self.assertRaises(ValueError):self.run_delta(raw,self.context(),text)
+ def test_synthetic_literal_quote_cannot_override_current_tree(self):
+  text='查询PBS中的L&D下级部件'
+  raw=self.raw(action='new',quote=text,set={'kind':'collection','population':'parts'},root={'type':'literal','tree':'config','field':'code','value':'L&D','quote':'构型L&D'});raw['mode']='new'
+  with self.assertRaises(ValueError):self.run_delta(raw,{},text)
+
 if __name__=='__main__':unittest.main()
 
 class FoundationContracts(unittest.TestCase):

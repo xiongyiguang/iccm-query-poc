@@ -1,10 +1,10 @@
 {
-  "change_id": "ICCM-R17-RELEASE-20261014",
-  "request_ref": "用户明确要求把这版提交、推送并部署到腾讯云，部署后按测试情况4原连续问答复测，确认线上与本机一致。",
-  "baseline_path": "docs/07-部署与运维/r16发布记录-20261013.md",
-  "baseline_version": "r16运行74fb1b1；最终本机冻结workspace-feedback4-fixed8-not-a-git-commit",
-  "scope": "发布fixed8已验证公共机制；腾讯云普通演示服务r17；保留r16回退，复用原CSV/持久导入/认证/模型配置；跨登录历史仍排除。",
-  "impact_reason": "原17步隔离真实复现7通过10失败；根对象串用及跨入口状态失配属于系统性问题",
+  "change_id": "ICCM-R18-RELEASE-20261014",
+  "request_ref": "用户明确：把这版常规問数服务提交、推送并部署到腾讯云，部署后按测试情况4原连续問答再复测，确认线上与本机一致。",
+  "baseline_path": "docs/06-测试与验收/连续问答新题重复验证-20261014.md",
+  "baseline_version": "fixed5冻结工作区75289120e31f；本机连续414、历史业务257、原17、常规1074及页面通过",
+  "scope": "提交并推送已验证常规服务及工程文档；腾讯云新建r18，仅部署常规运行制品；目标常规1074/前端验证后切换，公网原17与本机对照。保留r17、数据、导入、环境配置，Agent只归档不部署。",
+  "impact_reason": "首次新题三轮108/144，证明公共连续状态与槽位缺陷；逐批留出、回归继续检出来源表示和历史展示边界。",
   "impacted_gates": [
     "architecture_confirmed",
     "data_design_confirmed",
@@ -14,21 +14,20 @@
     "interaction_baseline_confirmed"
   ],
   "affected_modules": [
+    "deployment",
     "backend",
     "frontend",
     "ai",
     "tests",
-    "docs",
-    "deployment"
+    "docs"
   ],
   "high_risk": false,
   "business_change": false,
-  "confirmation_ref": "2026-10-14当前用户提交推送部署及复测指令；本轮DeepSeek真实复测已获明确授权。",
+  "confirmation_ref": "2026-10-14当前用户明确提交、推送、部署及原连续问答一致性复测授权；沿用现有DeepSeek必要脱敏载荷授权。",
   "publication_authorized_for_new_candidate": true,
-  "validation_plan": "核对fixed8冻结指纹及源码外发范围；Git提交推送；腾讯云候选全量1053/135离线及前端；原子切换正式服务；5组17步原连续问答及业务投影与本机对照；公网资源与实际异常历史页面；数据配置指纹不变。",
-  "execution_status": "r17已提交推送并部署腾讯云，运行d0c47a4；目标1053/135与前端通过，公网原连续17/17通过且17/17业务投影与本机一致，异常历史实际浏览器通过；CSV/导入/配置指纹不变，r16保留回退。跨登录历史暂不处理。",
-  "evidence_path": "docs/07-部署与运维/r17发布记录-20261014.md",
-  "validation_manifest": "docs/.staging/release-r17-20261014/final-release-verification.json",
-  "runtime_commit": "d0c47a44a0d15593d8814166356ece7e34a7d487",
-  "release_path": "/opt/iccm-8899/releases/20261014-r17"
+  "validation_plan": "本机冻结代码校验及原验证记录复核；从Git提交生成制品并保持已验字节；目标机常规1074与前端；切换后实际公网原5组17步及本机业务投影一致性、页面/文件/数据配置指纹检查。",
+  "execution_status": "发布授权已登记；云端r17指纹及实际PID核对一致，r18制品准备中。",
+  "evidence_path": "docs/07-部署与运维/r18发布记录-20261014.md",
+  "validation_manifest": "docs/.staging/release-r18-20261014/final-release-verification.json",
+  "release_path": "/opt/iccm-8899/releases/20261014-r18"
 }

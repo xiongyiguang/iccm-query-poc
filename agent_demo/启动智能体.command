@@ -1,11 +1,4 @@
 #!/bin/zsh
-cd "${0:A:h}" || exit 1
-PY="$HOME/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3"
-if [[ ! -x "$PY" ]]; then
-  PY="$(command -v python3)"
-fi
-if ! "$PY" -c 'import sys; sys.exit(sys.version_info < (3, 11))'; then
-  print "智能体需要 Python 3.11 或更高版本，请先恢复本机 Python 运行环境。"
-  exit 1
-fi
-exec "$PY" server.py --port 8771
+print "独立Codex智能体演示已停用，不再启动服务。"
+print "请使用项目根目录“打开演示.command”启动常规问数服务。"
+print "历史源码和测试记录保留，后续仅维护优化常规问数服务。"

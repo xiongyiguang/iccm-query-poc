@@ -63,6 +63,30 @@ def class_removal_sources(text,old,replaced_device_collection=False):
         for t in targets:found[t]=source
     return found
 
+def normalize_class_predicates(p,question,context,store,before,audit):
+    """错误放置的精确分类等值谓词，仅按当前原话和真实字典归一。"""
+    if store is None or not isinstance(p.get('filters'),list) or not isinstance(p.get('classes'),list):return
+    from relational_state import exact_literal
+    from relational_query import Graph
+    retained=[]
+    for edit in p['filters']:
+        condition=edit.get('condition') if isinstance(edit,dict) else None
+        tree=condition.get('field') if isinstance(condition,dict) else None
+        blocked=tree in before.get('classes',{}) or any(e.get('tree')==tree for e in p['classes'] if isinstance(e,dict))
+        valid=(isinstance(edit,dict) and set(edit)=={'action','condition','quote'} and edit.get('action')=='add'
+               and isinstance(condition,dict) and set(condition)=={'field','operator','value'}
+               and tree in ('equipment_class','part_class') and condition.get('operator')=='equals' and not blocked)
+        if not valid:retained.append(edit);continue
+        source=edit['quote'];value=condition['value']
+        try:
+            if not isinstance(source,str) or source not in question:raise ValueError('无当前来源')
+            root=exact_literal(tree,'identity',value,source,question,context,store)
+            if isinstance(Graph(store).resolve(root),list):raise ValueError('分类身份不唯一')
+        except (ValueError,TypeError):retained.append(edit);continue
+        p['classes'].append({'action':'set','tree':tree,'reference':{'type':'literal',**root,'quote':source}})
+        audit.append('原表已证实的分类等值谓词从筛选表示接入同一分类契约:'+tree)
+    p['filters']=retained
+
 def normalize_delta(raw,question,context,store=None):
     """省略空操作=不变；未声明的新值、未知键、冲突写法仍拒绝。"""
     value=copy.deepcopy(raw);audit=[]
@@ -216,6 +240,14 @@ def normalize_delta(raw,question,context,store=None):
                         ref=source[key];task_quote=item.get('quote')
                         if isinstance(ref,dict) and ref.get('type') in ('role','class') and 'quote' not in ref and isinstance(task_quote,str) and task_quote in question and re.search(r'前[一二两三四五六1-6]轮|第[一二三四五六1-6](?:轮|问)|刚才|之前|上(?:轮|一轮)|最开始|首(?:轮|问)',task_quote):
                             ref['quote']=task_quote;audit.append('同一历史引用动作使用已给出的真实任务引文，实际历史角色仍由程序核验')
+                        if store is not None and isinstance(ref,dict) and set(ref)=={'type','tree','field','value','quote'} and ref.get('type')=='literal' and isinstance(ref['quote'],str) and ref['quote'] and ref['quote'] not in question and isinstance(task_quote,str) and task_quote and task_quote in question:
+                            try:
+                                from relational_state import exact_literal as prove_current_literal
+                                prove_current_literal(ref['tree'],ref['field'],ref['value'],task_quote,question,context,store)
+                            except ValueError:
+                                pass
+                            else:
+                                ref['quote']=task_quote;audit.append('完整身份经当前真实任务原话及原表证明后采用真实引文，拒绝模型合成来源')
                         check_ref(ref)
                 edits=source.get('classes',[])
                 if isinstance(edits,dict) and 'action' in edits:edits=[edits]
@@ -259,6 +291,7 @@ def normalize_delta(raw,question,context,store=None):
     for p in value.get('tasks',[]):
         if not isinstance(p,dict) or p.get('action')=='retain':continue
         before=(old.get(p.get('id')) or {}).get('spec',{});fields=p.setdefault('set',{})
+        normalize_class_predicates(p,question,context,store,before,audit)
         if value.get('mode')=='update':
             for key in ('root','compare_root'):
                 if key in p and p[key] is None and before.get(key) is None:

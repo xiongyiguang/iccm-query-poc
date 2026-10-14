@@ -288,6 +288,4 @@ def serve(port=8771):
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--port', type=int, default=8771)
-    serve(parser.parse_args().port)
+    print('独立Codex智能体演示已停用。请使用根目录“打开演示.command”启动常规问数服务。历史源码保留，不再维护此入口。')

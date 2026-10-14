@@ -1,0 +1,34 @@
+{
+  "change_id": "ICCM-CONTINUITY-HOLDOUT-20261014",
+  "request_ref": "用户要求按更严格标准，以未参与修复的新题、不同顺序连续问答、多次重复重测，重点换对象、澄清和范围继承；发现问题公共机制修复并跑历史回归；先不部署。；追加用户只保留常规服务、后续仅维护优化常规服务指令。",
+  "baseline_path": "docs/07-部署与运维/r17发布记录-20261014.md",
+  "baseline_version": "r17运行d0c47a4；记录3436469",
+  "scope": "本机常规服务隔离真实DeepSeek，新题冻结重复验证、公共机制修复与历史回归；停用独立智能体启动入口，保留历史源码及证据。不部署、不启停既有常规服务，跨登录历史排除。",
+  "impact_reason": "首次新题三轮108/144，证明公共连续状态与槽位缺陷；逐批留出、回归继续检出来源表示和历史展示边界。",
+  "impacted_gates": [
+    "architecture_confirmed",
+    "data_design_confirmed",
+    "ai_boundary_confirmed",
+    "test_plan_confirmed",
+    "regression_boundary_confirmed",
+    "interaction_baseline_confirmed"
+  ],
+  "affected_modules": [
+    "backend",
+    "frontend",
+    "ai",
+    "tests",
+    "docs",
+    "agent_demo启动入口（仅停用）"
+  ],
+  "high_risk": false,
+  "business_change": false,
+  "confirmation_ref": "2026-10-14当前用户明确新题重复测试与公共机制修复指令；沿用本会话已明确DeepSeek必要脱敏载荷真实复测授权。",
+  "publication_authorized_for_new_candidate": false,
+  "validation_plan": "六批23组138步三轮414；第六批代码冻结后生成首次留出36。独立CSV真值、完整代码集及分类、正确未执行澄清，历史原257、原17、常规1074、模拟与实际页面；首次失败与来源守卫独立审计完整保留。",
+  "execution_status": "本机fixed5冻结候选完成：连续414/414（其中最终新留出首次36/36），历史业务257/257，原17/17，常规1074及前端和真实浏览器通过。历史全目录守卫因Agent停用README变更非零，source-audit证明常规及测试源码未变；原记录保留。独立智能体两启动入口停用；无提交、推送或部署。",
+  "evidence_path": "docs/06-测试与验收/连续问答新题重复验证-20261014.md",
+  "validation_manifest": "docs/.staging/continuity-holdout-20261014/final-validation.json",
+  "runtime_commit": "d0c47a44a0d15593d8814166356ece7e34a7d487",
+  "release_path": "/opt/iccm-8899/releases/20261014-r17"
+}

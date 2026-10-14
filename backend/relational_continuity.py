@@ -42,7 +42,8 @@ def pending_scope(question,context,store):
     return validate_plan({'operation':'relational','entity':None,'scope':'direct','clarification':'','relational_tasks':[{'id':1,'spec':spec}]})
 
 def scope_marked(text):
-    return bool(re.search(r'直接|直属|下一层|直接子|自身|本身|全部|所有|后代|深层|全层级',text))
+    from request_turn import positive_scope_text
+    return bool(re.search(r'直接|直属|下一层|直接子|自身|本身|全部|所有|后代|深层|全层级',positive_scope_text(text)))
 
 def continued_collection_tree(question,context,store,value):
     """连续同种简单集合的来源域是已执行查询参数；新身份仍须当前原话和原表证明。"""
@@ -51,9 +52,14 @@ def continued_collection_tree(question,context,store,value):
     spec=tasks[0]['spec'];root=spec.get('root')
     if spec.get('kind')!='collection' or not root or spec.get('population') not in ('parts','devices','objects'):return None
     if any(spec.get(k) for k in ('classes','filters','group_by','properties','limit','only','boundary','compare_root','target_tree')):return None
-    if re.search(r'新问题|独立|另查|另外|重新开始|重置|清空|不继承|不要|取消|只保留|仅保留|比较|分别|同时|排序|筛选|限定|增加|撤销',question):return None
+    from request_turn import independent
+    if independent(question) or re.search(r'另查|另外|重置|清空|不要|取消|比较|分别|同时|排序|筛选|限定|增加|撤销',question):return None
     noun={'parts':'部件','devices':'设备','objects':'对象'}[spec['population']]
-    if not re.search(r'下|后代',question) or noun not in question or not re.search(r'有哪些|有什么|列出|多少|几[个条类]|数量',question):return None
+    # 已执行的单一集合给出输出所有者；字面根给出新的实际身份。
+    # 只换根/沿用要求不必重新复述“下有哪些”，关系目标另走独立域证明。
+    control = re.search(r'换|切|改|沿用|保持|继续|相同|同样|不变|不动|接着',question)
+    reread = noun in question and re.search(r'下|后代|列出|查|多少|几[个条类]|数量',question)
+    if not (control or reread) or re.search(r'对应|所属|是什么|名称|父对象|上级',question):return None
     from request_checklist import literal_references
     values={r['value'] for r in literal_references(question,store) if r.get('field') in ('name','code')}
     if values!={value}:return None
@@ -71,11 +77,18 @@ def collection_continuity(value,question,context,store,audit):
     from request_checklist import literal_references
     p=value['tasks'][0];text=question
     if not isinstance(p,dict):return
-    if re.search(r'新问题|独立|另查|另外|重新开始|清空|重置|不继承|取消|不要|别|只保留|仅保留|比较|分别|同时|排序|筛选|限定|增加|撤销',text):return
-    population={'parts':'部件','devices':'设备','objects':'对象'}[spec['population']]
-    if not re.search(r'下|后代',text) or population not in text or not re.search(r'有哪些|有什么|列出|多少|几[个条类]|数量',text):return
+    from request_turn import independent, depth_control
+    if independent(text) or re.search(r'另查|另外|清空|重置|取消|不要|别|比较|分别|同时|排序|筛选|限定|增加|撤销|不查询|不执行',text):return
     if p.get('action')=='retain':
         if value.get('mode')!='update' or p.get('id')!=previous['id']:return
+        depth = depth_control(text)
+        refs = [r for r in literal_references(question,store) if r.get('field') in ('code','name')]
+        if depth and not refs:
+            value['tasks']=[{'id':previous['id'],'action':'update','quote':question,'set':{'depth':depth},'filters':[],'classes':[]}]
+            audit.append('单集合肯定层级控制变更实际深度；其他查询槽位保持')
+            return
+        noun={'parts':'部件','devices':'设备','objects':'对象'}[spec['population']]
+        if noun not in text or not re.search(r'下|后代|有哪些|有什么|列出|多少|几[个条类]|数量',text):return
         try:
             node=Graph(store).resolve(root)
             exact_literal(root['tree'],root['field'],root['value'],question,question,context,store)

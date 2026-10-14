@@ -511,10 +511,16 @@ def apply_delta(delta, previous, question, reference_context=None):
 
 def commit_state(context, trace, result, previous=None):
     """成功回执和未完成草稿分开提交；只完成本轮实际交付的任务。"""
+    if (trace or {}).get('engine')=='table_scope':
+        if result.get('status')=='clarify' and trace.get('pending_public_query'):
+            context['pending_public_query']=copy.deepcopy(trace['pending_public_query'])
+        elif result.get('status')=='ok':
+            for key in ('pending_public_query','pending_business_request','pending_slot','pending_request','pending_question','pending_reference','relational_pending_question','relational_pending_questions'):context.pop(key,None)
+        return context
     if (trace or {}).get('engine')=='relational_request':
         if result.get('relational_state'):context['relational_state']=copy.deepcopy(result['relational_state'])
         if result.get('status')=='ok':
-            for key in ('pending_business_request','pending_slot','pending_request','pending_question','pending_reference','relational_pending_question','relational_pending_questions'):context.pop(key,None)
+            for key in ('pending_public_query','pending_business_request','pending_slot','pending_request','pending_question','pending_reference','relational_pending_question','relational_pending_questions'):context.pop(key,None)
         return context
     trace=trace or {};state=trace.get('business_request_state')
     success=result.get('status')=='ok' or (result.get('status')=='batch' and all(i.get('status')=='ok' for i in result.get('items',[])))

@@ -10,8 +10,8 @@ project:
   slug: "iccm-query-poc"
   type: "客户POC技术原型"
   shape: "本机与腾讯云演示Web智能问数助手"
-  delivery_goal: "稳定单表及基础多表关联查询，r17已发布并测试情况4原连续问答一致复测通过；复杂多轮新设计暂缓"
-  stage: "r17已提交推送并部署腾讯云，运行d0c47a4；目标1053/135与前端通过，公网原连续17/17通过且17/17业务投影与本机一致，异常历史实际浏览器通过；CSV/导入/配置指纹不变，r16保留回退。跨登录历史暂不处理。"
+  delivery_goal: "仅维护优化常规问数服务，稳定单表及基础多表关联查询；独立Codex智能体退出维护。"
+  stage: "常规本机候选fixed5验证完成：连续414/414、历史业务257/257、原17/17、离线1074及页面通过；独立智能体停用；当前授权r18发布，部署及原17一致复测进行中，跨登录排除。"
   owner: "用户负责业务确认，Codex负责设计实现"
   created_at: "2026-09-14"
   updated_at: "2026-10-14"
@@ -27,8 +27,8 @@ applicability:
   ai: "适用"
   semantic_extraction: "不适用"
   rag: "不适用"
-  # 仅 agent_demo 本机隔离演示；普通版不启用，见本机Codex智能体演示.md
-  agent: "适用"
+  # 用户2026-10-14要求只保留常规问数；历史源码及验证记录保留，入口停用。
+  agent: "不适用"
   intelligent_audit: "不适用"
 
 ui:
@@ -61,7 +61,7 @@ governance:
   vertical_slice_defined: true
   interaction_baseline_confirmed: true
   test_plan_confirmed: true
-  # 2026-10-14用户明确授权fixed8提交推送及腾讯云r17部署复测。
+  # 当前用户2026-10-14明确授权本机已验证常规候选提交、推送、部署及原17复测。
   release_authorized: true
 
 template_changelog:
