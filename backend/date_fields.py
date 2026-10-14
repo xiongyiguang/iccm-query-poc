@@ -5,9 +5,26 @@ TIMEZONE=timezone(timedelta(hours=8))
 DATE_OPS={'date_gte','date_lt','date_equals'}
 DATE_LABELS={'date_gte':'时间不早于','date_lt':'时间早于','date_equals':'时间等于'}
 
+def normalize_date_literal(value):
+ """完整日历字面等价归一，不截取未知尾缀，不改变原记录。"""
+ import re
+ if not isinstance(value,str):return value
+ text=value.strip()
+ chinese=re.fullmatch(r'([1-9]\d{3})年(?:(\d{1,2})月(?:(\d{1,2})日)?)?(\s+\d{1,2}:\d{2}(?::\d{2}(?:\.\d+)?)?)?',text)
+ numeric=re.fullmatch(r'([1-9]\d{3})[-/](\d{1,2})(?:[-/](\d{1,2}))?(\s+\d{1,2}:\d{2}(?::\d{2}(?:\.\d+)?)?)?',text)
+ match=chinese or numeric
+ if not match:return text
+ return match[1]+('-%02d'%int(match[2]) if match[2] else '')+('-%02d'%int(match[3]) if match[3] else '')+(match[4] or '')
+
+def date_literal_spans(text):
+ """完整且有效的显式日期内数字是日期槽位，不是短对象编码。"""
+ import re
+ pattern=r'(?<![A-Za-z0-9_&.#-])[1-9]\d{3}(?:年(?:\d{1,2}月(?:\d{1,2}日)?)?|[-/]\d{1,2}(?:[-/]\d{1,2})?)(?:\s+\d{1,2}:\d{2}(?::\d{2}(?:\.\d+)?)?)?(?![A-Za-z0-9_&.#-])'
+ return [m.span() for m in re.finditer(pattern,text) if calendar_period(m[0]) or parse_time(m[0])]
+
 def parse_time(value):
  if not isinstance(value,str) or not value.strip() or len(value)>100:return None
- value=value.strip()
+ value=normalize_date_literal(value)
  try:
   parsed=datetime.fromisoformat(value.replace('/','-'))
  except ValueError:
@@ -33,7 +50,7 @@ def business_clock():
 def canonical_year_filters(filters,store):
  """按业务时区归一日历年/月/日；文本年须全快照证明，不按条数猜等价。"""
  import re
- fs=list(filters);ranges=[]
+ fs=[(field,op,normalize_date_literal(value) if field=='time' and op in DATE_OPS else value) for field,op,value in filters];ranges=[]
  for field,op,value in fs:
   if field!='time' or op!='date_gte':continue
   start=parse_time(value)
@@ -87,6 +104,7 @@ def canonical_time_filters(filters):
 def calendar_period(value):
  """日期等于按明确的年、月、日精度比较，带时间仍精确比较瞬间。"""
  import re
+ value=normalize_date_literal(value)
  if not isinstance(value,str) or not re.fullmatch(r'[1-9]\d{3}(?:-(?:0[1-9]|1[0-2])(?:-(?:0[1-9]|[12]\d|3[01]))?)?',value):return None
  parts=value.split('-')
  try:

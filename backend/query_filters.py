@@ -17,6 +17,15 @@ from typed_fields import NUMERIC_FIELDS,NUMERIC_OPS,NUMERIC_LABELS,decimal_value
 from date_fields import DATE_OPS,DATE_LABELS,parse_time,calendar_period
 OPERATORS=DATE_OPS|{'contains','equals','starts_with','not_contains','is_blank','not_blank'}|NUMERIC_OPS
 
+def condition_contract():
+ """提取模型与执行器读取同一登记契约，避免提示词枚举落后于后端。"""
+ return {'condition_shape':['field','operator','value'],'operators':sorted(OPERATORS),'numeric':{'fields':sorted(NUMERIC_FIELDS),'operators':sorted(NUMERIC_OPS)},
+         'date':{'field':'time','operators':sorted(DATE_OPS),'timezone':'Asia/Shanghai',
+                 'calendar_period_operator':'date_equals','precision_encoding':'year/month/day/instant is encoded only in value; no precision key',
+                 'range':'date_gte inclusive start / date_lt exclusive end; calendar period is not a numeric value'},
+         'unary':{'operators':['is_blank','not_blank'],'value':''},
+         'update':'omit unchanged filters; add/remove/replace require current source; previous IDs refer only to executed conditions'}
+
 def filter_fields(target):
  return [*({**POINT_FIELDS,**POINT_RAW_FIELDS} if target=='points' else OBJECT_FIELDS),'identity']
 

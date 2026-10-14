@@ -1,0 +1,34 @@
+{
+  "change_id": "ICCM-R18-RELEASE-20261014",
+  "request_ref": "用户明确：把这版常规问数服务提交、推送并部署到腾讯云，部署后按测试情况4原连续问答再复测，确认线上与本机一致。",
+  "baseline_path": "docs/06-测试与验收/连续问答新题重复验证-20261014.md",
+  "baseline_version": "fixed5冻结工作区75289120e31f；本机连续414、历史业务257、原17、常规1074及页面通过",
+  "scope": "提交并推送已验证常规服务及工程文档；腾讯云新建r18，仅部署常规运行制品；目标常规1074/前端验证后切换，公网原17与本机对照。保留r17、数据、导入、环境配置，Agent只归档不部署。",
+  "impact_reason": "首次新题三轮108/144，证明公共连续状态与槽位缺陷；逐批留出、回归继续检出来源表示和历史展示边界。",
+  "impacted_gates": [
+    "architecture_confirmed",
+    "data_design_confirmed",
+    "ai_boundary_confirmed",
+    "test_plan_confirmed",
+    "regression_boundary_confirmed",
+    "interaction_baseline_confirmed"
+  ],
+  "affected_modules": [
+    "deployment",
+    "backend",
+    "frontend",
+    "ai",
+    "tests",
+    "docs"
+  ],
+  "high_risk": false,
+  "business_change": false,
+  "confirmation_ref": "2026-10-14当前用户明确提交、推送、部署及原连续问答一致性复测授权；沿用现有DeepSeek必要脱敏载荷授权。 用户随后明确允许推送到现有公开仓库https://github.com/xiongyiguang/iccm-query-poc。",
+  "publication_authorized_for_new_candidate": true,
+  "validation_plan": "本机冻结代码校验及原验证记录复核；从Git提交生成制品并保持已验字节；目标机常规1074与前端；切换后实际公网原5组17步及本机业务投影一致性、页面/文件/数据配置指纹检查。",
+  "execution_status": "r18运行5f7a926已提交推送，正式腾讯云current切换r18；目标常规1074及前端通过；公网原17/17，17/17与本机业务投影一致；实际公网页面通过；数据/导入/环境/Nginx/服务配置不变，r17完整保留。无Agent部署或回退演练。",
+  "evidence_path": "docs/07-部署与运维/r18发布记录-20261014.md",
+  "validation_manifest": "docs/.staging/release-r18-20261014/final-release-verification.json",
+  "release_path": "/opt/iccm-8899/releases/20261014-r18",
+  "runtime_commit": "5f7a9263d56b4358cf011fe2ea1566e7879a0b84"
+}

@@ -1,5 +1,6 @@
 """受限跨表查询：模型选择槽位，真实父边、粒度和缺失规则由程序执行。"""
 import copy
+from date_fields import DATE_OPS,compare_time
 import json
 from collections import Counter, defaultdict
 from attributes import CATALOG
@@ -23,6 +24,9 @@ DEFAULTS={'root':None,'kind':'relation','population':'objects','depth':'all','cl
 def canonical_condition(condition):
     """数值谓词使用无损数学值；字符串身份与原数据值保持原样。"""
     f=copy.deepcopy(condition)
+    if isinstance(f,dict) and f.get('field')=='time' and f.get('operator') in DATE_OPS:
+        from date_fields import normalize_date_literal
+        f['value']=normalize_date_literal(f.get('value'))
     if isinstance(f,dict) and f.get('field') in NUMERIC_FIELDS and f.get('operator') in NUMERIC_OPS:
         number=decimal_value(f.get('value'))
         if number is not None:
@@ -224,6 +228,7 @@ class Graph:
             expected=f['value'];op=f['operator']
             if f['field']=='identity':ok=expected in (row['code'],row['name']) if op=='equals' else any(expected in row[k] for k in ('code','name'))
             elif op in NUMERIC_OPS:ok=bool(compare(value,op,expected))
+            elif op in DATE_OPS:ok=bool(compare_time(value,op,expected))
             elif op=='equals':ok=value==expected
             elif op=='contains':ok=expected in value
             elif op=='not_contains':ok=expected not in value
@@ -429,12 +434,12 @@ def execute_task(graph,q):
             if q['group_by']=='source':
                 result['columns']=['源系统/原记录','描述/完整编码','记录数/原行号','不同编码数/名称','来源']
                 for row in record_rows:row['cells'].append('')
-                extra=q['properties']
+                extra=list(dict.fromkeys(['value']+q['properties']))
                 result['columns'] += [CATALOG.get(p,{}).get('label',p) for p in extra]
                 for visible in record_rows:visible['cells'] += ['']*len(extra)
                 for r in rows:record_rows.append({'cells':['原记录',r['code'],graph.store.ref(r)['line'],r['name'],r['system']]+[graph.value(r,p) or '未提供' for p in extra]})
         else:
-            props=list(dict.fromkeys(['code','name']+(['location'] if q['population']=='devices' and (q['target_tree'] or (root or {}).get('tree','pbs'))=='pbs' else [])+(['source','line','status'] if q['population']=='points' else [])+(['parent','class_code'] if q['only']=='missing_class' else [])+q['properties']))
+            props=list(dict.fromkeys(['code','name']+(['location'] if q['population']=='devices' and (q['target_tree'] or (root or {}).get('tree','pbs'))=='pbs' else [])+(['source','line','status','value'] if q['population']=='points' else [])+(['parent','class_code'] if q['only']=='missing_class' else [])+q['properties']))
             ordered=graph.sort_rows(rows,q['sort']) if q['sort'] else rows
             shown=ordered[:q['limit']] if q['limit'] else ordered
             result['columns']=[CATALOG.get(p,{}).get('label',{'line':'原CSV行号','pbs_part':'现场部件编码','location':'功能位置编码'}.get(p,p)) for p in props]+(['关联说明'] if q['only']=='missing_class' else [])

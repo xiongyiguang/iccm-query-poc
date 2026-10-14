@@ -17,7 +17,7 @@ def control_text(text):
 def explicit_removals(text,old):
     """有限撤销操作只定位已存在条件，不能因字段相同删除整个范围。"""
     result=[]
-    aliases={'source':('源系统','来源'),'switch':('开关','开启','关闭'),'status':('报警状态','已报警','未报警')}
+    aliases={'source':('源系统','来源'),'switch':('开关','开启','关闭'),'status':('报警状态','已报警','未报警'),'time':('测量时间','时间')}
     operator_words={'gt':('大于','超过'), 'gte':('大于等于','不小于'),'lt':('小于','低于'),'lte':('小于等于','不大于')}
     for match in re.finditer(r'(?:撤掉|撤销|取消|去掉|解除|不再限定)([^，。；;！？!?]*)',text):
         body=match.group(1)
@@ -38,12 +38,45 @@ def explicit_removals(text,old):
                             if condition_id({**f,'value':token})==condition_id(f):matches.append(token)
                 if not matches:continue
             same=[x for x in old if x['field']==field]
-            if len(same)>1:
+            field_words={'status':('报警状态','状态'),'switch':('开关','开关状态')}.get(field,words)
+            broad=bool(re.search(r'(?:'+'|'.join(map(re.escape,field_words))+r')\s*(?:条件|筛选|限制|过滤)',body)) and not bool(re.search(r'\d|大于|小于|不早于|早于|包含|等于|为空|非空',body))
+            if len(same)>1 and not broad:
                 val=str(f['value']);op=f['operator'];markers=operator_words.get(op,())
                 if not markers or not any(w+val in body.replace(' ','') for w in markers):continue
                 if op=='gt' and '大于等于' in body or op=='lt' and '小于等于' in body:continue
             result.append({'action':'remove','selector':{'id':condition_id(f)},'quote':source})
     return result
+
+def normalize_period_edits(p,before,question,store,audit):
+    """明确替换一个已执行日期段，只归一模型已经声明且原话可证的新段。"""
+    from question_coverage import obligations
+    from date_fields import canonical_year_filters,canonical_time_filters
+    from relational_state import select_condition
+    def norm(filters):return set(canonical_time_filters(canonical_year_filters([(f['field'],f['operator'],f['value']) for f in filters],store)))
+    old=[f for f in before.get('filters',[]) if f['field']=='time']
+    if not old:return
+    signature=norm(old)
+    if len(old)>1 and not (len(signature)==1 and next(iter(signature))[1] in ('calendar_year','calendar_month','calendar_day')):return
+    atoms=[o for o in obligations(p.get('quote',''),context=None) if o['kind']=='period_replace' and o['ordinal'] in (None,p.get('id'))]
+    for o in atoms:
+        declared=[e['condition'] for e in p.get('filters',[]) if isinstance(e,dict) and e.get('action') in ('add','replace') and isinstance(e.get('condition'),dict) and set(e['condition'])=={'field','operator','value'} and e['condition']['field']=='time']
+        if not declared or norm(declared)!=norm([o['expected']]):continue
+        kept=[]
+        for edit in p['filters']:
+            if not isinstance(edit,dict):kept.append(edit);continue
+            cond=edit.get('condition') or {};selector=edit.get('selector') or {}
+            if edit.get('action') in ('remove','replace'):
+                if selector=={'field':'time'}:selected=True
+                else:
+                    selected=select_condition(before['filters'],selector)['field']=='time'
+                if selected:
+                    if edit['action']=='replace':kept.append({'action':'add','condition':copy.deepcopy(cond),'quote':edit.get('quote')})
+                    continue
+            kept.append(edit)
+        removals=[{'action':'remove','selector':{'id':condition_id(f)},'quote':o['text']} for f in old]
+        p['filters']=removals+kept
+        audit.append('当前明确替换时间段且模型新段经数学等价核验；旧日期段的实际边界作为一个条件组替换，不新增漏掉的模型条件')
+        return {condition_id(f):o['text'] for f in old}
 
 def class_removal_sources(text,old,replaced_device_collection=False):
     """类别撤销必须指向实际旧类别；统计/分组转换不等于删除条件。"""
@@ -252,14 +285,28 @@ def normalize_delta(raw,question,context,store=None):
                 edits=source.get('classes',[])
                 if isinstance(edits,dict) and 'action' in edits:edits=[edits]
                 if isinstance(edits,list):
+                    read_roles=set()
                     for edit in edits:
                         if isinstance(edit,dict) and 'reference' in edit:
                             ref=edit['reference'];tree=edit.get('tree')
+                            task_quote=item.get('quote','')
+                            role_read=(set(edit)=={'action','tree','reference'} and edit.get('action')=='set' and tree in ('equipment_class','part_class') and isinstance(ref,dict) and ref.get('type')=='role' and ref.get('role')==tree
+                                       and item.get('set',{}).get('kind')=='relation' and isinstance(task_quote,str) and task_quote in question
+                                       and ('设备类' if tree=='equipment_class' else '部件类') in task_quote and re.search(r'编码|描述|名称',task_quote)
+                                       and not re.search(r'筛选|限定|过滤|只(?:看|查|要)|条件',task_quote))
+                            if role_read:
+                                from relational_state import reference
+                                proven=reference({**ref,'quote':task_quote},question,context,store)
+                                if proven['tree']==tree:
+                                    read_roles.add(id(edit));ref['quote']=task_quote
                             if isinstance(ref,dict) and ref.get('type')=='class' and tree in ('equipment_class','part_class'):
                                 if 'tree' not in ref:
                                     ref['tree']=tree;audit.append('同一类别动作的已登记外层树名补齐重复的class引用树名，不猜对象身份')
                                 elif ref['tree']!=tree:raise ValueError('类别引用树与外层条件树冲突，不能选择任一覆盖。')
                             check_ref(ref)
+                    if read_roles:
+                        source['classes']=[e for e in edits if id(e) not in read_roles]
+                        audit.append('当前原话读取分类编码/描述且实际角色唯一，作为关系输出交付；不把输出角色写成新增类别筛选')
     if value.get('mode')=='new' and len(value['tasks'])==1:
         p=value['tasks'][0]
         if isinstance(p,dict):
@@ -340,13 +387,52 @@ def normalize_delta(raw,question,context,store=None):
             for tree,literal in p['classes'].items():
                 edits.append({'action':'set','tree':tree,'reference':{'type':'literal','tree':tree,'field':'identity','value':literal,'quote':p.get('quote')}})
             p['classes']=edits;audit.append('显式分类字典转有来源的set动作；未列旧分类仍保留')
+        if isinstance(p.get('filters'),list):
+            kept=[]
+            for edit in p['filters']:
+                if isinstance(edit,dict) and edit.get('action')=='retain':
+                    from relational_state import select_condition
+                    if value.get('mode')!='update' or set(edit)-{'action','selector','quote'} or 'selector' not in edit:
+                        raise ValueError('保留只能引用实际已执行的旧条件，不能创建或改变条件。')
+                    select_condition(before.get('filters',[]),edit['selector'])
+                    if 'quote' in edit and (not isinstance(edit['quote'],str) or not edit['quote'] or edit['quote'] not in question):
+                        raise ValueError('保留条件的来源不在本轮原话中。')
+                    audit.append('实际旧条件唯一匹配的retain为无变更，编译器原样保留，不创造本轮条件来源')
+                    continue
+                condition=edit.get('condition') if isinstance(edit,dict) else None
+                if isinstance(condition,dict) and condition.get('field')=='time' and condition.get('operator') in __import__('date_fields').DATE_OPS:
+                    from relational_query import canonical_condition
+                    condition=canonical_condition(condition);edit['condition']=condition
+                if isinstance(condition,dict) and set(condition)=={'field','operator','value','precision'} and condition['field']=='time' and condition['operator']=='date_equals':
+                    from date_fields import calendar_period
+                    period=calendar_period(condition['value'])
+                    expected={1:'year',2:'month',3:'day'}.get(len(condition['value'].split('-'))) if period else None
+                    if expected==condition['precision']:
+                        condition.pop('precision');audit.append('日期值自身明确的日历精度与冗余precision一致，保留同一数学段；冲突精度仍拒绝')
+                if isinstance(condition,dict) and set(condition)=={'field','operator'} and condition['operator'] in ('is_blank','not_blank'):
+                    condition['value']='';audit.append('登记的一元空值谓词不携带值，补齐空参数表示，不推断字段或条件')
+                kept.append(edit)
+            p['filters']=kept
         if value.get('mode')=='update' and isinstance(p.get('filters'),list):
+            period_changes=normalize_period_edits(p,before,question,store,audit) or {}
             inferred=explicit_removals(p.get('quote','') if isinstance(p.get('quote'),str) else '',before.get('filters',[]))
             supported={x['selector']['id']:x['quote'] for x in inferred}
+            supported.update(period_changes)
             if before.get('filters'):
                 from relational_state import select_condition
                 kept=[]
                 for edit in p['filters']:
+                    if isinstance(edit,dict) and edit.get('action')=='remove' and 'selector' in edit and set(edit)<={'action','selector','quote'}:
+                        selector=edit['selector']
+                        if isinstance(selector,dict) and set(selector)=={'field'}:
+                            matches=[f for f in before['filters'] if f['field']==selector['field']]
+                            if len(matches)>1 and all(condition_id(f) in supported for f in matches):
+                                kept.extend({'action':'remove','selector':{'id':condition_id(f)},'quote':supported[condition_id(f)]} for f in matches)
+                                audit.append('明确撤销整个登记字段条件，选择器展开为实际旧条件ID；部分边界撤销不展开')
+                                continue
+                        old_condition=select_condition(before['filters'],edit['selector']);cid=condition_id(old_condition)
+                        if cid in supported:
+                            edit['quote']=supported[cid]
                     if isinstance(edit,dict) and edit.get('action')=='remove' and set(edit)=={'action','selector','quote'} and isinstance(edit['quote'],str) and edit['quote'] in question:
                         old_condition=select_condition(before['filters'],edit['selector']);cid=condition_id(old_condition)
                         display_only=re.search(r'分组|汇总|统计|排序|展示|排名',edit['quote']) and not re.search(r'条件|筛选|过滤|范围限制',edit['quote'])
@@ -529,7 +615,9 @@ def normalize_delta(raw,question,context,store=None):
                 unique={str(x[0]) for x in matches}
                 if ref is None and len(unique)==1:
                     _,tid,index=matches[-1];p[key]={'type':'role','task':tid,'history':index,'role':'root','quote':qt};audit.append('原话明确两套已执行集合，缺省比较操作数按唯一实际原表根补全:'+tree)
-                if isinstance(ref,dict) and ref.get('type') in ('role','literal') and isinstance(ref.get('quote'),str) and len(unique)==1:
+                inherited_global=(isinstance(ref,dict) and ref.get('type')=='global' and re.search(r'刚才|上述|之前|前[二两2](?:轮|问|次)',qt)
+                                  and not re.search(r'全表|全局|全PBS|(?:全部|所有|整个)(?:PBS|构型|现场|部件|设备)',qt,re.I))
+                if isinstance(ref,dict) and (ref.get('type') in ('role','literal') or inherited_global) and isinstance(ref.get('quote'),str) and len(unique)==1:
                     _,tid,index=matches[-1];p[key]={'type':'role','task':tid,'history':index,'role':'root','quote':ref['quote']};audit.append('两套实际部件集合按compare登记的两种原表根独立定位:'+tree)
         if value.get('mode')=='update' and isinstance(p.get('root'),dict) and p['root'].get('role') in ('parent','pbs_parent') and re.search(r'沿.*父.*查.*(?:设备类|部件类|分类)',qt) and not re.search(r'改查.*父|父.*本身',qt):
             p.pop('root');audit.append('沿真实父边读取分类不改变查询主体；直接保留实际原根')

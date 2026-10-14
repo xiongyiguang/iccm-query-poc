@@ -121,6 +121,8 @@ def literal_references(question,store):
     # 数量/任务序号/数值比较和登记字段中的数字，不是恰好同码的对象。
     # 数字对象的明确引用（例如构型3、编码3）仍保留。
     numeric_spans=[]
+    from date_fields import date_literal_spans
+    numeric_spans += date_literal_spans(question)
     for pattern in (r'(?:前|第)\s*[0-9]+\s*(?:类|条|个|项|组|步|台|层|行)',r'任务\s*[0-9]+(?![0-9])',r'(?:大于等于|小于等于|大于|小于|超过|不小于|不大于|低于|高于)\s*-?[0-9]+(?:\.[0-9]+)?',r'源系统[0-9]+',r'(?:高|低)[1-3](?:阈值)?'):
         numeric_spans += [m.span() for m in re.finditer(pattern,question)]
     from attributes import CATALOG

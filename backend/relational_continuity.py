@@ -8,6 +8,22 @@ def prepared_context(context,store):
     receipt=out.get('query_receipt') or {};entity=out.get('entity')
     owned=(out.get('business_request') or {}).get('tasks',[])
     if owned and len(owned)!=1:return out
+    query=receipt.get('query') or {}
+    if receipt.get('operation')=='search' and receipt.get('grain')=='measurement_record' and query.get('target')=='points' and not out.get('relational_state'):
+        if (receipt.get('goal_receipt') or {}).get('completed') is False:return out
+        if (receipt.get('result_goal') or {}).get('kind','records')!='records':return out
+        root=None
+        if entity:
+            if receipt.get('resolved_entity')!=entity or entity.get('tree') not in ('pbs','config'):return out
+            root={'tree':entity['tree'],'field':'code','value':entity['code']}
+            try:actual=Graph(store).resolve(root)
+            except ValueError:return out
+            if isinstance(actual,list):return out
+        spec=canonical({'root':root,'kind':'collection','population':'points','depth':receipt.get('scope','all'),
+                        'filters':query.get('filters',[])})
+        out['relational_state']={'tasks':[{'id':1,'spec':spec,'resolved':{}}]}
+        out['relational_focus_source']='成功普通监测集合的实际根/条件回执；不登记测点行或未执行角色为现场根'
+        return out
     # 测点属性回执的物理定位也可能标成PBS；逻辑原表/粒度决定所有者，
     # 不能把一次测量记录读取或多任务的一个子结果变成全局单对象关系目录。
     if (receipt.get('query') or {}).get('target')=='points' or receipt.get('grain')=='measurement_record':return out

@@ -18,6 +18,37 @@ class Codec(unittest.TestCase):
  def test_omitted_empty_actions_preserve_all_filters_and_classes(self):
   ctx=self.context(self.q(classes={'equipment_class':'EC'},filters=[{'field':'source','operator':'equals','value':'S'}]));before=copy.deepcopy(ctx)
   v,_=self.run_delta(self.raw(),ctx);self.assertEqual(v['tasks'][0]['spec'],ctx['relational_state']['tasks'][0]['spec']);self.assertEqual(ctx,before)
+ def test_retain_selector_is_no_mutation_of_real_filter(self):
+  f={'field':'source','operator':'equals','value':'S'};q=self.q(filters=[f]);v,_=self.run_delta(self.raw(filters=[{'action':'retain','selector':{'id':condition_id(f)}}]),self.context(q));self.assertEqual(v['tasks'][0]['spec'],q)
+ def test_classification_output_roles_are_not_new_filters(self):
+  from relational_query import Graph,execute_task
+  spec=self.q(root={'tree':'pbs','field':'code','value':'L&D#p1'},kind='relation',population='objects');ctx=self.context(spec);ctx['relational_state']['tasks'][0]['resolved']=execute_task(Graph(self.s),spec)['relation_facts']
+  q='沿这个对象的真实关系，给出所属设备类和部件类的编码及描述';edits=[{'action':'set','tree':tree,'reference':{'type':'role','task':1,'role':tree,'quote':'所属'+word}} for tree,word in [('equipment_class','设备类'),('part_class','部件类')]]
+  raw=self.raw(quote=q,set={'kind':'relation','population':'objects','properties':['code','name']},classes=edits);v,_=self.run_delta(raw,ctx,q);self.assertEqual(v['tasks'][0]['spec']['classes'],{});self.assertEqual(v['tasks'][0]['spec']['root'],spec['root'])
+ def test_point_measurement_projection_matches_actual_default_delivery(self):
+  from relational_planner import bound_semantics
+  a={'handled':True,'tasks':[{'id':1,'spec':self.q(properties=['value'])}]};b={'handled':True,'tasks':[{'id':1,'spec':self.q()}]};self.assertEqual(bound_semantics(a,self.s),bound_semantics(b,self.s))
+ def test_combined_removal_uses_original_current_span_for_actual_conditions(self):
+  q='撤掉开启及已报警条件';ctx=self.context(self.q(filters=[{'field':'switch','operator':'equals','value':'开启'},{'field':'status','operator':'equals','value':'已报警'}]));raw=self.raw(quote=q,filters=[{'action':'remove','selector':{'field':'status'},'quote':'撤掉已报警条件'}]);v,_=self.run_delta(raw,ctx,q);self.assertEqual(v['tasks'][0]['spec']['filters'],[])
+ def test_malformed_quote_without_raw_removal_proof_still_rejected(self):
+  q='保留开启及已报警条件';ctx=self.context(self.q(filters=[{'field':'switch','operator':'equals','value':'开启'},{'field':'status','operator':'equals','value':'已报警'}]));raw=self.raw(quote=q,filters=[{'action':'remove','selector':{'field':'status'},'quote':'撤掉已报警条件'}])
+  with self.assertRaises(ValueError):self.run_delta(raw,ctx,q)
+ def test_unsupported_global_operand_cannot_expand_explicit_prior_two_sets(self):
+  a=self.q(root={'tree':'pbs','field':'code','value':'L&D'},population='parts');b=self.q(root={'tree':'config','field':'code','value':'D'},population='parts');ctx=self.context(b);ctx['relational_history']=[{'state':self.context(a)['relational_state']},{'state':self.context(b)['relational_state']}]
+  q='对照刚才两套部件集合及构型D真实下级';raw=self.raw(quote=q,set={'kind':'compare','population':'parts'},root={'type':'global','quote':'两套部件集合'},compare_root={'type':'literal','tree':'config','field':'code','value':'D','quote':'构型D'});v,_=self.run_delta(raw,ctx,q);self.assertEqual(v['tasks'][0]['spec']['root']['value'],'L&D');self.assertEqual(v['tasks'][0]['spec']['compare_root']['value'],'D')
+ def test_output_role_without_actual_class_role_cannot_be_invented(self):
+  q='给出所属设备类的编码及描述';raw=self.raw(quote=q,set={'kind':'relation','population':'objects'},classes=[{'action':'set','tree':'equipment_class','reference':{'type':'role','task':1,'role':'equipment_class','quote':'所属设备类'}}])
+  with self.assertRaises(ValueError):self.run_delta(raw,self.context(),q)
+ def test_retain_selector_unknown_is_rejected(self):
+  with self.assertRaises(ValueError):self.run_delta(self.raw(filters=[{'action':'retain','selector':{'id':'unknown'}}]),self.context())
+ def test_retain_cannot_create_condition_or_accept_old_quote(self):
+  f={'field':'source','operator':'equals','value':'S'};ctx=self.context(self.q(filters=[f]))
+  for edit in [{'action':'retain','selector':{'id':condition_id(f)},'condition':f},{'action':'retain','selector':{'id':condition_id(f)},'quote':'历史来源'}]:
+   with self.assertRaises(ValueError):self.run_delta(self.raw(filters=[edit]),ctx)
+ def test_unary_predicate_absent_argument_has_exact_empty_representation(self):
+  v,_=self.run_delta(self.raw(filters=[{'action':'add','quote':'更新原结果','condition':{'field':'time','operator':'is_blank'}}]),self.context());self.assertEqual(v['tasks'][0]['spec']['filters'],[{'field':'time','operator':'is_blank','value':''}])
+ def test_binary_predicate_missing_value_is_not_defaulted(self):
+  with self.assertRaises(ValueError):self.run_delta(self.raw(filters=[{'action':'add','quote':'更新原结果','condition':{'field':'time','operator':'date_equals'}}]),self.context())
  def test_empty_object_is_only_a_no_edit_not_clear_classes(self):
   ctx=self.context(self.q(classes={'equipment_class':'EC'}));v,_=self.run_delta(self.raw(classes={},filters={}),ctx)
   self.assertEqual(v['tasks'][0]['spec']['classes'],{'equipment_class':'EC'})

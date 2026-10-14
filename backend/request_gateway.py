@@ -134,11 +134,13 @@ def seal(store,question,plan):
     _VERIFIED.receipt=(id(store),fingerprint(store,question,plan))
 
 
-def require_verified(store,question,plan):
+def require_verified(store,question,plan,context=None,trace=None):
     if getattr(_VERIFIED,'receipt',None)!=(id(store),fingerprint(store,question,plan)):
         raise RequestInvalid('查询未经过当前请求的完整校验，或核验后发生变化；未执行。')
     # 核验凭据只能使用一次，后续请求不能重放旧计划的批准结果。
     clear_verification()
+    from question_coverage import audit
+    return audit(store,question,plan,context,trace)
 
 
 def adapt(plan,question,previous,mode,store,references=None):

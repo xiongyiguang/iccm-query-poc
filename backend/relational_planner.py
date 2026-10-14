@@ -60,10 +60,12 @@ def extract(question,context,key,model,record,_repair=False,_independent=False,_
     from model import NoRedirect,ENDPOINT
     # JSON响应格式的接口要求属于请求构造，不依赖某版业务Prompt
     # 恰好包含该标识；模型输出仍须经过同一个严格状态编译器。
-    body={'model':model,'messages':[{'role':'system','content':'仅输出 JSON 对象。\n'+(INDEPENDENT_PROMPT if _independent else PROMPT).read_text()+'\n字段目录：'+json.dumps(CATALOG,ensure_ascii=False)},
+    from query_filters import condition_contract
+    body={'model':model,'messages':[{'role':'system','content':'仅输出 JSON 对象。\n'+(INDEPENDENT_PROMPT if _independent else PROMPT).read_text()+'\n字段目录：'+json.dumps(CATALOG,ensure_ascii=False)+'\n条件操作符及类型以当前condition_contract登记为准。时间字段不得使用数值操作符；日历年/月/日使用date_equals保留精度，日期边界用date_gte/date_lt。is_blank/not_blank的value为空字符串。未变旧条件省略变更，不重抄来源。'},
         {'role':'user','content':json.dumps({'question':question,'previous':context.get('relational_state'),
             'registered_entry':{'required':bool(context.get('relational_required')),'scope':'程序已登记的只读图关联能力','reference_capabilities':context.get('relational_reference_capabilities',[])},
             'condition_catalog':__import__('relational_state').condition_catalog(context),
+            'condition_contract':condition_contract(),
             'old_context':{k:context[k] for k in ('entity','query','scope','operation','branches') if k in context},
             'executed_history':context.get('relational_history',[]),
             'pending_unexecuted_questions':context.get('relational_pending_questions') or ([context['relational_pending_question']] if context.get('relational_pending_question') else []),
@@ -165,6 +167,11 @@ def bound_semantics(value,store):
     if not value.get('handled') or store is None:return value
     for task in value['tasks']:
         q=task['spec']
+        if q['kind']=='collection' and q['population']=='points':q['properties']=[p for p in q['properties'] if p!='value']
+        from date_fields import canonical_year_filters,canonical_time_filters
+        signatures=canonical_time_filters(canonical_year_filters([(f['field'],f['operator'],f['value']) for f in q['filters']],store))
+        q['filters']=[{'field':field,'operator':'date_equals' if op in ('calendar_year','calendar_month','calendar_day') else op,'value':value} for field,op,value in signatures]
+        q['filters']=canonical(q)['filters']
         for key in ('root','compare_root'):
             root=q[key]
             if not root:continue

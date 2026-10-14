@@ -1,0 +1,30 @@
+{
+  "change_id": "ICCM-QUESTION-COVERAGE-20261014",
+  "request_ref": "当前用户明确实现常规公共覆盖检查，单表与关联覆盖，共同遗漏反例、新题连续及历史回归，先不部署。",
+  "baseline_path": "docs/07-部署与运维/r18发布记录-20261014.md",
+  "baseline_version": "Git03f33e0，常规运行5f7a926，工作区初始干净",
+  "scope": "常规自然语言执行许可公共覆盖门禁与本机隔离验证；不提交、推送、部署；不启停既有服务；Agent和跨登录排除",
+  "impact_reason": "旧一致性许可接受两个共同漏时间条件的相同计划；原话覆盖与完整值语法独立检查，并修复实测暴露的公共日期执行、条件组、监测回执和来源表示缺口。",
+  "impacted_gates": [
+    "architecture_confirmed",
+    "data_design_confirmed",
+    "ai_boundary_confirmed",
+    "test_plan_confirmed",
+    "regression_boundary_confirmed",
+    "interaction_baseline_confirmed"
+  ],
+  "affected_modules": [
+    "backend",
+    "ai",
+    "tests",
+    "docs"
+  ],
+  "high_risk": false,
+  "business_change": false,
+  "confirmation_ref": "当前用户实现与本机验证指令；沿用本会话DeepSeek必要脱敏问句、目录及上下文真实复测授权。",
+  "publication_authorized_for_new_candidate": false,
+  "validation_plan": "共同遗漏反例、HTTP拒绝及状态保护、全部常规离线、代码冻结后新题三轮、历史257及原17；原失败与原判据保留。",
+  "execution_status": "公共门禁已实现并完成同版验收：78专项、1191离线及前端、新题108/108、修复216/216、历史257/257、原17/17、实际页面；源码/题包/原CSV一致，临时服务关闭；未提交、推送、部署。",
+  "evidence_path": "docs/06-测试与验收/公共原话覆盖检查-20261014.md",
+  "validation_manifest": "docs/.staging/question-coverage-20261014/final-validation.json"
+}

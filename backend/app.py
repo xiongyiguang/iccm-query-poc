@@ -220,7 +220,13 @@ class Handler(BaseHTTPRequestHandler):
                 execution_diagnostic={'question':body.get('question'),'version':store.version,'intent':intent,'stage':'execution'}
                 if mode=='model':
                     from request_gateway import require_verified
-                    require_verified(store,question,intent)
+                    try:
+                        planning_trace['question_coverage']=require_verified(store,question,intent,context,planning_trace)
+                    except ValueError as error:
+                        from question_coverage import CoverageInvalid
+                        if isinstance(error,CoverageInvalid):
+                            (get_trace() or {}).update(question_coverage=error.report)
+                        raise
                 if intent['operation']=='explain_result':
                     from result_explanation import explain_result
                     result=explain_result(session.get('last_success'))
@@ -274,6 +280,10 @@ class Handler(BaseHTTPRequestHandler):
                     if session.get('busy') is request_owner:session['busy']=False
         except (QueryError,ValueError,TypeError,KeyError) as e:
             payload={'error':str(e),'error_code':'execution_invalid','request_id':uuid.uuid4().hex}
+            from question_coverage import CoverageInvalid
+            if isinstance(e,CoverageInvalid):
+                payload['error_code']='coverage_incomplete'
+                if body.get('trace') is True:payload['question_coverage']=e.report
             if 'body' in locals() and body.get('trace') is True:
                 payload['diagnostic']=locals().get('execution_diagnostic',{'stage':'request_validation'})
                 if body.get('intent') is None and 'execution_diagnostic' in locals():payload['trace']=get_trace()

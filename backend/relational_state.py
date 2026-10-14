@@ -87,7 +87,7 @@ def reference(ref,question,context,store):
         return exact_literal(ref['tree'],ref['field'],ref['value'],text,question,context,store)
     if kind=='global':
         require_keys(ref,{'type','quote'},'global')
-        if not re.search(r'全PBS|整个PBS|全表|全监测|全量|(?:全部|所有)(?:PBS|构型树)?(?:现场|设备|部件|监测|数据)|全局|PBS(?:各|所有|全部)(?:层级|类型)|(?:^|[，。；;\s]|查|查询|读取)(?:整个(?:PBS|构型|监测)(?:原)?表|监测原表)',text):
+        if not re.search(r'全PBS|整个PBS|全表|全监测|全量|(?:全部|所有)(?:PBS|构型树)?(?:现场|设备|部件|监测|数据)|全局|PBS(?:各|所有|全部)(?:层级|类型)|(?:^|[，。；;：:\s]|查|查询|读取)(?:整个(?:PBS|构型|监测)(?:原)?表|(?:测点|监测)(?:原)?表)',text):
             raise ValueError('清除根范围必须有本轮全表目标依据。')
         return None
     if kind not in ('role','class'):raise ValueError('未知实际身份引用类型。')
